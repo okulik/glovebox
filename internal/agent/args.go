@@ -98,7 +98,7 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 	cfg = &container.Config{
 		Image:      spec.Image,
 		Hostname:   "glovebox-" + spec.PID,
-		User:       "501:20",
+		User:       HostUser(),
 		WorkingDir: "/workspace",
 		Cmd:        []string{"sleep", "infinity"},
 		Env:        env,

@@ -58,7 +58,7 @@ func (c *RunCmd) Run() error {
 	err = hostDocker.Exec(ctx, dockerx.ExecSpec{
 		Container:   cname,
 		Interactive: interactiveStdio(),
-		User:        "501:20",
+		User:        agent.HostUser(),
 		Workdir:     "/workspace",
 		Argv:        args,
 	})
@@ -186,7 +186,7 @@ func (c *UpdateCmd) Run() error {
 	fmt.Fprintf(os.Stderr, "$ %s\n", strings.Join(argv, " "))
 	return hostDocker.Exec(ctx, dockerx.ExecSpec{
 		Container: cname,
-		User:      "501:20",
+		User:      agent.HostUser(),
 		Argv:      argv,
 	})
 }

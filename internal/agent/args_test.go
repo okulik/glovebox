@@ -40,8 +40,8 @@ func TestBuildCreateConfigBasicShape(t *testing.T) {
 	if name != "glovebox-agent-aaaa1111bbbb" {
 		t.Fatalf("name = %q", name)
 	}
-	if cfg.User != "501:20" {
-		t.Fatalf("user = %q", cfg.User)
+	if cfg.User != HostUser() {
+		t.Fatalf("user = %q, want %q", cfg.User, HostUser())
 	}
 	if cfg.WorkingDir != "/workspace" {
 		t.Fatalf("workdir = %q", cfg.WorkingDir)

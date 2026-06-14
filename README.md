@@ -31,16 +31,23 @@ manipulate something dangerous, but it can't reach out.
 
 ## Prerequisites
 
-macOS with a Docker-compatible runtime installed and running. Any of these
-work; `gbx` talks to the Docker Engine API directly via the moby SDK (the
-`docker build` shell-out for first-time image builds is the only remaining
-CLI dependency), so anything that exposes a Docker socket is fine:
+macOS or Linux with a Docker-compatible runtime installed and running. Any
+of these work; `gbx` talks to the Docker Engine API directly via the moby
+SDK (the `docker build` shell-out for first-time image builds is the only
+remaining CLI dependency), so anything that exposes a Docker socket is fine:
 
-- [OrbStack](https://orbstack.dev) - recommended; what the test suite is
-  exercised against.
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+- [OrbStack](https://orbstack.dev) - recommended on macOS; what the test
+  suite is exercised against.
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS or Linux).
 - [Colima](https://github.com/abiosoft/colima) (`brew install colima docker`).
 - [Rancher Desktop](https://rancherdesktop.io) with the `dockerd (moby)` engine.
+- Native [Docker Engine](https://docs.docker.com/engine/install/) on Linux
+  (rootful; the daemon socket at `/var/run/docker.sock`).
+
+The agent container runs as your host user's UID/GID so bind-mounted files
+stay owned by you. On macOS the Docker file-sharing layer maps ownership
+automatically; on native Linux the match is exact, derived from `id -u` /
+`id -g` at build and run time.
 
 ## Install
 
@@ -437,9 +444,12 @@ inside the agent are the inner one. Specifically:
    is the proxy.
 2. The proxy permits only HTTPS CONNECT to domains in `allowlist.txt`.
    Plain HTTP and non-HTTPS CONNECTs are denied.
-3. The container runs as **UID 501 / GID 20** (your macOS user) with
-   `cap_drop: [ALL]` and `no-new-privileges`. Files written to
-   `/workspace` appear owned by you on the host.
+3. The container runs as **your host user's UID/GID** (derived from
+   `os.Getuid()` / `os.Getgid()` at image-build and container-create time)
+   with `cap_drop: [ALL]` and `no-new-privileges`. Files written to
+   `/workspace` appear owned by you on the host - on macOS via the Docker
+   file-sharing layer, on native Linux because the container UID matches
+   your host UID directly.
 4. The harness **does not pass `--dangerously-skip-permissions`**.
    Approve tool calls in the usual agent prompts.
 
@@ -457,8 +467,8 @@ Four bridge networks separate the components. Only one of them
 proxy (via `HTTPS_PROXY`) and to the stack-controller's `:7000` API.
 
 ```
-   host (macOS)
-   ─────────────
+   host (macOS / Linux)
+   ────────────────────
      /var/run/docker.sock              127.0.0.1:7001
               │                                │
               │ RO bind                        │ host-only listener

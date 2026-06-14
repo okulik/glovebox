@@ -7,10 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/alecthomas/kong"
 
+	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/stack"
@@ -251,7 +253,10 @@ func agentBuildSpec(libexec string) dockerx.BuildSpec {
 		Tag:        config.GbxFromEnv().AgentImage,
 		Dockerfile: filepath.Join(libexec, "docker", "Dockerfile"),
 		Context:    libexec,
-		Args:       map[string]string{"HOST_UID": "501", "HOST_GID": "20"},
+		Args: map[string]string{
+			"HOST_UID": strconv.Itoa(agent.HostUID()),
+			"HOST_GID": strconv.Itoa(agent.HostGID()),
+		},
 	}
 }
 
