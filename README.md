@@ -2,7 +2,7 @@
 
 <img width="500" alt="glovebox" src="https://github.com/user-attachments/assets/bd9ca342-32a6-4a62-b368-f4e3193c01c3" />
 
-A Docker-based isolation harness for running AI coding agents on macOS.
+A Docker-based isolation harness for running AI coding agents.
 Supports seven agents - **Claude Code, Codex, OpenCode, Pi, Gemini CLI,
 Aider, Hermes** - each launched with `gbx run <agent>`. The image ships
 only a thin wrapper binary (`gbxa`, dispatched by the agent name it's
