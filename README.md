@@ -63,8 +63,8 @@ PATH.
 
 ### From source
 
-Requires Go (the Homebrew path ships a prebuilt binary, so Go isn't needed
-there).
+Requires Go. (The Homebrew path also builds from source, but pulls in Go
+automatically as a build-time dependency, so you don't install it yourself.)
 
 ```bash
 git clone https://github.com/okulik/glovebox ~/dev/glovebox

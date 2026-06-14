@@ -8,7 +8,7 @@ class Glovebox < Formula
 
   url "https://github.com/okulik/glovebox/archive/refs/tags/v0.1.0.tar.gz"
   sha256 "7d61c625464ce60c5f52a50ff561099bb19023aa085d00406ba646b1022efabf"
-  version "0.1.0"
+  version "0.1.1"
 
   depends_on "go" => :build
   depends_on "go-md2man" => :build
