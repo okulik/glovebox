@@ -889,23 +889,6 @@ brew reinstall --HEAD glovebox
 Confirm the formula commit brew will pull matches your local push with
 `git -C <repo> log -1 --oneline Formula/glovebox.rb` before reinstalling.
 
-### Dedicated tap repository
-
-Homebrew requires taps to live in repos named `homebrew-<name>` for the
-short `brew tap owner/name` syntax to work. Until a dedicated
-`okulik/homebrew-glovebox` repo exists, users tap with the full URL
-(HTTPS or SSH - `brew tap` accepts any clonable Git URL):
-
-```bash
-brew tap okulik/glovebox https://github.com/okulik/glovebox
-# or
-brew tap okulik/glovebox git@github.com:okulik/glovebox.git
-```
-
-To switch to a dedicated tap, create `okulik/homebrew-glovebox` on
-GitHub, copy `Formula/glovebox.rb` there, and update the instructions
-above.
-
 ---
 
 ## Licence
