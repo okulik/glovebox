@@ -1,0 +1,22 @@
+{
+  "model": "sonnet",
+  "permissions": {
+    "allow": [
+      "Bash(gbx-stack)",
+      "Bash(gbx-stack *)",
+      "Read(//etc/glovebox/**)",
+      "Write(//tmp/**)",
+      "Edit(//tmp/**)"
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+  },
+  "extraKnownMarketplaces": {
+  },
+  "theme": "dark",
+  "autoUpdaterStatus": "true"
+}

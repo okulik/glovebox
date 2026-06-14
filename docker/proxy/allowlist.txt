@@ -1,0 +1,51 @@
+# Squid 6 dstdomain rules:
+# - A leading dot (e.g., `.example.com`) matches the bare domain AND all subdomains.
+# - A bare hostname (e.g., `registry.example.com`) matches only that exact host.
+# - You may NOT have both `.example.com` and `example.com` - Squid will refuse to start.
+
+# Anthropic / Claude
+.anthropic.com
+.claude.com
+
+# npm - bare registry host on .org plus all of .com
+.npmjs.com
+registry.npmjs.org
+
+# Python
+pypi.org
+.pythonhosted.org
+
+# GitHub - wildcard covers api.github.com, codeload.github.com, etc.
+.github.com
+.githubusercontent.com
+
+# Go
+.golang.org
+go.dev
+
+# Docker (in case the agent pulls extra tooling images)
+.docker.io
+
+# OpenAI / Codex
+.openai.com
+.chatgpt.com
+
+# OpenRouter - Aider, OpenCode, Pi multi-provider
+.openrouter.ai
+
+# Google AI (Gemini)
+.googleapis.com
+
+# Other common provider hosts
+.deepseek.com
+.groq.com
+.mistral.ai
+
+# misc
+.datadoghq.com
+.models.dev
+.githubcopilot.com
+.opencode.ai
+.pi.dev
+.huggingface.co
+.hf.co

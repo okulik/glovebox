@@ -1,0 +1,136 @@
+# golangci-lint v2 configuration
+# Validate with: golangci-lint config verify
+# Run with:      golangci-lint run
+version: "2"
+
+run:
+  # Include test files in analysis (default true; explicit here).
+  tests: true
+  # Fail if any go.mod/go.sum changes would be needed.
+  modules-download-mode: readonly
+
+linters:
+  # Start from the default set (errcheck, govet, ineffassign,
+  # staticcheck, unused) and add a curated, high-signal set on top.
+  default: standard
+  enable:
+    # --- correctness / bugs ---
+    - bodyclose # HTTP response bodies are closed
+    - contextcheck # checks for inherited / non-inherited contexts
+    - copyloopvar # detects unnecessary loop var copies (Go 1.22+)
+    - durationcheck # catches time.Duration multiplications that are wrong
+    - errorlint # correct error wrapping (errors.Is/As, %w)
+    - errchkjson # un-checkable / mistaken json.Marshal types
+    - exhaustive # exhaustive enum switch statements
+    - forcetypeassert # require the ", ok" form of type assertions
+    - gosec # security issues
+    - makezero # slices made with non-zero len then appended
+    - nilerr # returning nil after checking err != nil
+    - nilnesserr # combined nil + err return mistakes
+    - noctx # HTTP requests without context.Context
+    - protogetter # use proto getters instead of direct field access
+    - reassign # reassigning package-level vars from other pkgs
+    - recvcheck # mixed value/pointer receivers on a type
+    - rowserrcheck # sql.Rows.Err() is checked
+    - sqlclosecheck # sql.Rows / sql.Stmt are closed
+    - spancheck # OpenTelemetry/Census spans are ended
+    - bidichk # dangerous unicode bidi sequences
+    - asasalint # passing []any to variadic any incorrectly
+
+    # --- modernization / idiom ---
+    - intrange # use Go 1.22 range-over-int
+    - modernize # modern Go rewrites
+    - exptostd # migrate golang.org/x/exp into stdlib
+    - perfsprint # faster alternatives to fmt.Sprintf
+    - usestdlibvars # use stdlib consts (http.MethodGet, etc.)
+    - usetesting # use t.Context, t.Setenv, etc. in tests
+    - sloglint # consistent log/slog usage
+
+    # --- style / clarity (low-noise) ---
+    - errname # error vars are ErrXxx, error types XxxError
+    - gocheckcompilerdirectives # valid //go: directives
+    - misspell # common English misspellings
+    - nakedret # naked returns only in tiny functions
+    - nolintlint # //nolint directives are well-formed & used
+    - predeclared # don't shadow predeclared identifiers (len, new...)
+    - revive # golint successor, broad style linter
+    - unconvert # remove unnecessary type conversions
+    - unparam # unused function parameters / results
+    - wastedassign # assignments that are never used
+    - whitespace # leading/trailing whitespace in blocks
+
+    # --- tests ---
+    - testifylint # correct testify usage (if you use testify)
+    - thelper # test helpers call t.Helper()
+    - tparallel # correct t.Parallel() usage
+    - testableexamples # Example funcs have expected output
+
+  settings:
+    govet:
+      enable-all: true # turn on every govet analyzer, incl. shadow
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    staticcheck:
+      checks:
+        - all
+    revive:
+      rules:
+        - name: unused-parameter
+          arguments:
+            - allow-regex: "^_" # allow _-prefixed unused params
+    nakedret:
+      max-func-lines: 30
+    misspell:
+      locale: US
+
+  exclusions:
+    generated: lax
+    warn-unused: true # tells you when an exclusion rule is dead
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+      - legacy
+    rules:
+      # Relax the noisier linters in test files.
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+          - forcetypeassert
+      # ST1005 (error string formatting): many returned errors are user-facing
+      # CLI text whose capitalization / trailing punctuation is part of the
+      # documented contract and pinned by bash integration tests. Matches
+      # staticcheck.conf.
+      - linters: [staticcheck]
+        text: "^ST1005:"
+      # QF1001 (apply De Morgan's law): refactor suggestion, not a bug.
+      - linters: [staticcheck]
+        text: "^QF1001:"
+      # `defer f.Close()` is idiomatic; the deferred error is rarely
+      # actionable and conventionally ignored.
+      - linters: [errcheck]
+        text: "\\.Close\\b"
+      # Writes to kctx.Stdout / os.Stderr already go to the user's terminal;
+      # capturing a write error and rewriting it nowhere isn't useful.
+      - linters: [errcheck]
+        text: "fmt\\.(Fprint|Fprintln|Fprintf)\\b"
+      # os.Setenv / os.Unsetenv don't fail on supported platforms in practice.
+      - linters: [errcheck]
+        text: "os\\.(Setenv|Unsetenv)\\b"
+
+formatters:
+  enable:
+    - gofumpt # stricter gofmt superset
+    - goimports # manage & group imports
+  settings:
+    goimports:
+      # Put your module path here so local imports get their own group.
+      local-prefixes:
+        - github.com/your-org/your-repo
+
+issues:
+  # Report everything; don't hide repeats. Good for a fresh codebase.
+  max-issues-per-linter: 0
+  max-same-issues: 0

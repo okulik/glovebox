@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Multi-agent auth status / login helper.
+#
+# Usage:
+#   agent-auth                   status table for all known agents
+#   agent-auth <agent>           detailed status for one agent
+#   agent-auth <agent> login     run that agent's native login (if any)
+set -euo pipefail
+
+AGENTS=(claude codex opencode pi gemini aider hermes)
+
+# Env vars that, if set, indicate api-key auth for the agent.
+env_for_agent() {
+  case "$1" in
+    claude)   echo "ANTHROPIC_API_KEY" ;;
+    codex)    echo "OPENAI_API_KEY" ;;
+    opencode) echo "OPENAI_API_KEY ANTHROPIC_API_KEY OPENROUTER_API_KEY" ;;
+    pi)       echo "ANTHROPIC_API_KEY OPENAI_API_KEY GOOGLE_API_KEY OPENROUTER_API_KEY" ;;
+    gemini)   echo "GOOGLE_API_KEY" ;;
+    aider)    echo "OPENAI_API_KEY ANTHROPIC_API_KEY OPENROUTER_API_KEY DEEPSEEK_API_KEY GROQ_API_KEY MISTRAL_API_KEY GOOGLE_API_KEY" ;;
+    hermes)   echo "ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY" ;;
+    *)        echo "" ;;
+  esac
+}
+
+# Config dir that, if non-empty, indicates persisted OAuth/login state.
+configdir_for_agent() {
+  case "$1" in
+    claude)   echo "$HOME/.claude" ;;
+    codex)    echo "$HOME/.codex" ;;
+    opencode) echo "$HOME/.local/share/opencode" ;;
+    pi)       echo "$HOME/.pi" ;;
+    gemini)   echo "$HOME/.gemini" ;;
+    aider)    echo "$HOME/.aider" ;;
+    hermes)   echo "$HOME/.hermes" ;;
+    *)        echo "" ;;
+  esac
+}
+
+has_env() {
+  local v
+  for v in $1; do
+    [[ -n "${!v:-}" ]] && return 0
+  done
+  return 1
+}
+
+has_login_state() {
+  local d="$1"
+  [[ -d "$d" ]] && [[ -n "$(ls -A "$d" 2>/dev/null | head -1)" ]]
+}
+
+agent_source() {
+  local name="$1"
+  if has_env "$(env_for_agent "$name")"; then
+    echo "env"
+  elif has_login_state "$(configdir_for_agent "$name")"; then
+    echo "oauth"
+  else
+    echo "none"
+  fi
+}
+
+print_table() {
+  printf "%-10s %-10s\n" "AGENT" "AUTH"
+  printf "%-10s %-10s\n" "-----" "----"
+  for a in "${AGENTS[@]}"; do
+    printf "%-10s %-10s\n" "$a" "$(agent_source "$a")"
+  done
+}
+
+print_detail() {
+  local a="$1"
+  echo "Agent:   $a"
+  echo "Source:  $(agent_source "$a")"
+  echo "Envvars: $(env_for_agent "$a")"
+  echo "Config:  $(configdir_for_agent "$a")"
+}
+
+case "${1:-}" in
+  "")
+    print_table
+    ;;
+  -h|--help|help)
+    echo "Usage: agent-auth [<agent>] [login]"
+    echo "Known agents: ${AGENTS[*]}"
+    ;;
+  *)
+    target="$1"; shift || true
+    if ! printf '%s\n' "${AGENTS[@]}" | grep -qx "$target"; then
+      echo "Unknown agent: $target" >&2
+      exit 2
+    fi
+    if [[ "${1:-}" == "login" ]]; then
+      case "$target" in
+        claude)   exec claude /login ;;
+        codex)    exec codex login ;;
+        opencode) exec opencode auth login ;;
+        hermes)   exec hermes login ;;
+        gemini)   exec gemini ;;
+        aider)    echo "aider has no login command - set provider env vars in .env" >&2; exit 1 ;;
+        pi)       echo "pi has no login command - set provider env vars in .env" >&2; exit 1 ;;
+      esac
+    else
+      print_detail "$target"
+    fi
+    ;;
+esac

@@ -1,0 +1,18 @@
+# Local secrets and per-host config
+.env
+
+# Persistent runtime state (created on first run)
+/state/
+
+# Test harness config dir (created by make test) and per-worker variants
+# (created by scripts/parallel-tests.sh).
+.test-config/
+.test-config.w*/
+
+# Build artifacts
+*.tar
+.DS_Store
+_build/
+/bin/*
+
+share/man/man1/gbx.1

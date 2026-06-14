@@ -1,0 +1,6 @@
+docker.io
+ghcr.io
+gcr.io
+public.ecr.aws
+quay.io
+mcr.microsoft.com
