@@ -47,15 +47,19 @@ CLI dependency), so anything that exposes a Docker socket is fine:
 ### Via Homebrew
 
 ```bash
-brew tap okulik/glovebox https://github.com/okulik/glovebox
+brew tap okulik/glovebox
 brew trust --formula okulik/glovebox/glovebox    # brew 5.x; see below
 brew install glovebox
 ```
 
-`brew install glovebox` resolves to the formula from the tap as long as no
-other tapped formula shares the name (homebrew-core has no `glovebox`).
-The `brew trust` step is Homebrew 5.x's opt-in for third-party taps;
-without it `brew install` runs but doesn't link a `gbx` binary on PATH.
+`brew tap okulik/glovebox` resolves to the
+[`okulik/homebrew-glovebox`](https://github.com/okulik/homebrew-glovebox)
+tap repository (Homebrew inserts the `homebrew-` prefix automatically).
+`brew install glovebox` then resolves to the formula from that tap as long
+as no other tapped formula shares the name (homebrew-core has no
+`glovebox`). The `brew trust` step is Homebrew 5.x's opt-in for third-party
+taps; without it `brew install` runs but doesn't link a `gbx` binary on
+PATH.
 
 ### From source
 
@@ -847,11 +851,13 @@ WORKERS=4 make test-parallel    # faster but hits OrbStack daemon contention; ex
 
 ### Publishing a Homebrew release
 
-The formula lives in `Formula/glovebox.rb` and installs from the tagged
-release tarball pinned by its `url`, `sha256`, and `version` lines. To cut
-a new version:
+The canonical formula lives in the dedicated tap repo,
+[`okulik/homebrew-glovebox`](https://github.com/okulik/homebrew-glovebox),
+as `Formula/glovebox.rb` (the copy in this repo is a non-authoritative
+reference). It installs from the tagged release tarball pinned by its
+`url`, `sha256`, and `version` lines. To cut a new version:
 
-1. Tag and push:
+1. In this repo, tag and push:
    ```bash
    git tag v0.1.0
    git push origin v0.1.0
@@ -861,8 +867,8 @@ a new version:
    curl -sL https://github.com/okulik/glovebox/archive/refs/tags/v0.1.0.tar.gz \
      | shasum -a 256
    ```
-3. In `Formula/glovebox.rb`, update the `url`, `sha256`, and `version`
-   lines to match the new tag, then commit and push.
+3. In the tap repo's `Formula/glovebox.rb`, update the `url`, `sha256`, and
+   `version` lines to match the new tag, then commit and push.
 
 The formula also carries a `head` spec (latest `main`) for anyone who wants
 to track development with `brew install --HEAD glovebox`.

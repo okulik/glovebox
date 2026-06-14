@@ -1,3 +1,4 @@
+# Reference copy. The authoritative formula lives in the okulik/homebrew-glovebox tap repo.
 class Glovebox < Formula
   desc "Isolated multi-agent AI coding harness with proxy egress control"
   homepage "https://github.com/okulik/glovebox"
