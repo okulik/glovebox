@@ -6,8 +6,8 @@ class Glovebox < Formula
 
   head "https://github.com/okulik/glovebox.git", branch: "main"
 
-  url "https://github.com/okulik/glovebox/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "7d61c625464ce60c5f52a50ff561099bb19023aa085d00406ba646b1022efabf"
+  url "https://github.com/okulik/glovebox/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "64a5696b219c38acbe0cc88799cb189fb36a98563b82b1443a543bdb0159a7c7"
   version "0.1.1"
 
   depends_on "go" => :build
