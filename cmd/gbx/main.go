@@ -47,6 +47,7 @@ type CLI struct {
 	New                ProjectNewCmd                `cmd:"" name:"new" help:"Register a project from a workspace path."`
 	Allow              AllowCmd                     `cmd:"" help:"Append a domain to the egress allowlist."`
 	Mount              ProjectMountCmd              `cmd:"" help:"Manage per-project extra bind mounts."`
+	Plugin             PluginCmd                    `cmd:"" help:"Manage per-project Dockerfile plugins (add/edit/ls/rm)."`
 	Rebuild            ProjectRebuildCmd            `cmd:"" help:"Rebuild the shared agent image and recreate the project's agent (or the stack-controller with --controller)."`
 	Sync               SyncCmd                      `cmd:"" help:"Reconcile managed agent state from current defaults (no container recreate)."`
 	Run                RunCmd                       `cmd:"" help:"Run a command in the active project's agent (or drop into a shell)."`
@@ -83,6 +84,14 @@ func main() {
 	if os.Args[1] == "stack" {
 		if len(os.Args) == 2 || os.Args[2] == "--help" || os.Args[2] == "-h" {
 			printStackUsage()
+			return
+		}
+	}
+
+	// `gbx plugin` with no subcommand, or `gbx plugin --help` / `-h`.
+	if os.Args[1] == "plugin" {
+		if len(os.Args) == 2 || os.Args[2] == "--help" || os.Args[2] == "-h" {
+			printPluginUsage()
 			return
 		}
 	}

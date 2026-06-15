@@ -36,6 +36,10 @@ Projects (target the default project unless -p <id> is given):
   mount ls                           List the project's extra mounts.
   mount apply                        Recreate the agent container with the
                                      current mount set.
+  plugin add | edit <id> | ls | rm <id>
+                                     Manage per-project Dockerfile plugins
+                                     (layered on the base image; apply with
+                                     'gbx rebuild').
   stack diff                         Show live vs proposed manifest.
   stack apply [--dry-run] [-y]       Apply the stored proposal.
   stack down                         Stop services, keep volumes.
@@ -130,6 +134,31 @@ All subcommands target the default project unless -p <id> is given.
                                    gbx restart controller`)
 }
 
+// printPluginUsage prints the `gbx plugin` / `gbx plugin --help` help.
+func printPluginUsage() {
+	fmt.Println(`gbx plugin - manage per-project Dockerfile plugins
+
+Plugins are Dockerfile fragments layered on top of the base agent image.
+All subcommands target the default project unless -p <id> is given.
+Changes take effect on the next 'gbx rebuild'.
+
+  add                 Open $EDITOR on a new fragment seeded with instructions.
+                      The fragment must carry a '# gbx:description: <text>'
+                      line. Stored under
+                      state/projects/<pid>/plugins/<pluginid>.
+
+  edit <id>           Open $EDITOR on an existing fragment (id prefix ok).
+
+  ls [--all]          List the project's plugins (id, modified, description).
+                      --all lists every project's plugins.
+
+  rm <id> [-y]        Remove a fragment (id prefix ok). -y skips the prompt.
+
+A project with no plugins runs the shared base image. A project with one or
+more plugins runs a derived image 'glovebox-agent-<pid>:local' built by
+'gbx rebuild'.`)
+}
+
 // isKnownTopLevel reports whether the first positional argv is one of the
 // Kong-registered top-level subcommands or a flag.
 func isKnownTopLevel(s string) bool {
@@ -139,7 +168,7 @@ func isKnownTopLevel(s string) bool {
 	switch s {
 	case "new", "use", "ls", "rm",
 		"start", "stop", "restart", "rebuild", "sync",
-		"state-size", "mount",
+		"state-size", "mount", "plugin",
 		"stack", "up",
 		"run", "logs", "allow", "update",
 		"install-completions",
