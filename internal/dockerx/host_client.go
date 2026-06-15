@@ -17,6 +17,19 @@ import (
 	"golang.org/x/term"
 )
 
+const (
+	// ImageCreatedLabel is stamped on every image BuildImage produces, with the
+	// build time as its value. Containers inherit image labels, so `gbx ls -v`
+	// shows which build a container's image came from - the tag alone can't tell
+	// (each rebuild moves `glovebox-agent:local` to the new image, leaving older
+	// containers on a now-untagged one).
+	ImageCreatedLabel = "io.glovebox.image.created"
+
+	// ImageCreatedLabelFormat renders ISO-8601 UTC with millisecond precision,
+	// e.g. 2024-09-09T14:16:46.786Z.
+	ImageCreatedLabelFormat = "2006-01-02T15:04:05.000Z"
+)
+
 // HostClient is the subset of `docker` CLI invocations the host-side gbx makes.
 // Production uses NewHost (shells out via os/exec). Tests pass a fake.
 //
@@ -113,17 +126,6 @@ func (h *hostClient) ImageExists(ctx context.Context, image string) bool {
 	_, err := h.c.ImageInspect(ctx, image)
 	return err == nil
 }
-
-// ImageCreatedLabel is stamped on every image BuildImage produces, with the
-// build time as its value. Containers inherit image labels, so `gbx ls -v`
-// shows which build a container's image came from - the tag alone can't tell
-// (each rebuild moves `glovebox-agent:local` to the new image, leaving older
-// containers on a now-untagged one).
-const ImageCreatedLabel = "io.glovebox.image.created"
-
-// ImageCreatedLabelFormat renders ISO-8601 UTC with millisecond precision,
-// e.g. 2024-09-09T14:16:46.786Z.
-const ImageCreatedLabelFormat = "2006-01-02T15:04:05.000Z"
 
 // buildCLIArgs assembles the `docker build` argv for a BuildSpec. Split from
 // BuildImage so the flag construction (notably the created-label stamp) is
