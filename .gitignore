@@ -16,3 +16,6 @@ _build/
 /bin/*
 
 share/man/man1/gbx.1
+
+# Editor crud
+.zed
