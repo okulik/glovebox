@@ -77,6 +77,12 @@ func (f *FakeHost) RestartContainer(_ context.Context, name string) error {
 	return f.RestartErr
 }
 
+func (f *FakeHost) RemoveImage(_ context.Context, image string) error {
+	f.record("rmi %s", image)
+	delete(f.Images, image)
+	return f.RemoveErr
+}
+
 func (f *FakeHost) ForceRemoveContainer(_ context.Context, name string) error {
 	f.record("rm -f %s", name)
 	return f.RemoveErr

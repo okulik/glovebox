@@ -50,6 +50,22 @@ func TestFakeHostBuildMarksImagePresent(t *testing.T) {
 	}
 }
 
+func TestFakeHostRemoveImageClearsPresence(t *testing.T) {
+	f := NewFakeHost()
+	if err := f.BuildImage(context.Background(), BuildSpec{Tag: "glovebox-agent-abc:local"}); err != nil {
+		t.Fatalf("BuildImage: %v", err)
+	}
+	if !f.ImageExists(context.Background(), "glovebox-agent-abc:local") {
+		t.Fatal("image should exist after build")
+	}
+	if err := f.RemoveImage(context.Background(), "glovebox-agent-abc:local"); err != nil {
+		t.Fatalf("RemoveImage: %v", err)
+	}
+	if f.ImageExists(context.Background(), "glovebox-agent-abc:local") {
+		t.Error("image should be gone after RemoveImage")
+	}
+}
+
 func TestFakeHostExecCapturesSpec(t *testing.T) {
 	f := NewFakeHost()
 	spec := ExecSpec{

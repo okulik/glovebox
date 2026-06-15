@@ -55,6 +55,10 @@ type HostClient interface {
 	// RestartContainer runs `docker restart <name>`.
 	RestartContainer(ctx context.Context, name string) error
 
+	// RemoveImage runs the equivalent of `docker rmi -f <image>`. A missing
+	// image is not treated as an error.
+	RemoveImage(ctx context.Context, image string) error
+
 	// ForceRemoveContainer runs `docker rm -f <name>`. A missing container
 	// is not treated as an error.
 	ForceRemoveContainer(ctx context.Context, name string) error
@@ -125,6 +129,13 @@ func (h *hostClient) DaemonReachable(ctx context.Context) error {
 func (h *hostClient) ImageExists(ctx context.Context, image string) bool {
 	_, err := h.c.ImageInspect(ctx, image)
 	return err == nil
+}
+
+func (h *hostClient) RemoveImage(ctx context.Context, image string) error {
+	// Best-effort, mirroring ForceRemoveContainer: a missing image or a
+	// transient daemon error shouldn't bubble up to the user.
+	_, _ = h.c.ImageRemove(ctx, image, dockerclient.ImageRemoveOptions{Force: true})
+	return nil
 }
 
 // buildCLIArgs assembles the `docker build` argv for a BuildSpec. Split from
