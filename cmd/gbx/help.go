@@ -36,6 +36,15 @@ Projects (target the default project unless -p <id> is given):
   mount ls                           List the project's extra mounts.
   mount apply                        Recreate the agent container with the
                                      current mount set.
+  stack diff                         Show live vs proposed manifest.
+  stack apply [--dry-run] [-y]       Apply the stored proposal.
+  stack down                         Stop services, keep volumes.
+  stack destroy [-y]                 Stop + remove services + volumes.
+  stack status                       Show service health.
+  stack ls                           List all projects with stacks.
+  stack logs <svc> [--follow]        Stream service logs.
+  stack image-allow <registry>       Extend the image allowlist.
+
 
 Agents:
   run                                Drop into a bash shell inside the agent.
@@ -49,27 +58,76 @@ Global:
   up                                 Bring the singleton egress-proxy +
                                      controller stack up (idempotent).
   allow <domain>                     Add to the shared egress allowlist.
-  stack <subcommand>                 Manage per-project dev stacks.
   help                               Show this message.
-  -p <id-or-prefix> <cmd>            Override the default project for one call.
 
 Config dir: %s
 `, cfg)
 }
 
-// printStackUsage prints the `gbx stack` no-arg help.
+// printMountUsage prints the `gbx mount --help` / `-h` help.
+func printMountUsage() {
+	fmt.Println(`gbx mount - manage per-project extra bind mounts
+
+All subcommands target the default project unless -p <id> is given.
+Changes take effect on the next 'gbx mount apply' or 'gbx rebuild'.
+
+  add <host>[:<container>][:rw|ro]
+
+      Append a bind mount to the project's stored mount set.
+      <host> is symlink-resolved before storing so the on-disk record
+      matches what Docker actually mounts.
+      <container> defaults to /mnt/<basename of host>.
+      mode defaults to rw.
+      Container paths already claimed by the runtime
+      (/workspace, /home/gbx/.claude, /home/gbx/.npm, …) are rejected
+      to prevent shadowing agent state.
+
+  rm <host-or-container>
+
+      Remove a previously added mount, matched against either the host
+      path or the container path. The unresolved host path is also
+      accepted (the match tries both forms).
+
+  ls
+
+      Print the current mount set, one host:container:mode per line.
+
+  apply
+
+      Force-recreate the agent container so the current mount set takes
+      effect immediately. Equivalent to 'gbx rebuild' but skips the
+      image rebuild step.`)
+}
+
+// printStackUsage prints the `gbx stack` / `gbx stack --help` help.
 func printStackUsage() {
 	fmt.Println(`gbx stack - manage per-project dev stacks
 
-Commands (target the default project unless -p <id> is given):
-  [-p <id>] stack diff                    Show live vs proposed (from controller)
-  [-p <id>] stack apply [--dry-run] [-y]  Apply the stored proposal
-  [-p <id>] stack down                    Stop services, keep volumes
-  [-p <id>] stack destroy [-y]            Stop + remove services + volumes
-  [-p <id>] stack status                  Show service health
-            stack ls                      List all projects with stacks
-  [-p <id>] stack logs <svc> [--follow]   Stream service logs
-            stack image-allow <registry>  Extend image-allowlist.txt`)
+All subcommands target the default project unless -p <id> is given.
+
+  diff                           Show live manifest vs stored proposal.
+                                 Outputs a unified diff (--- live / +++ proposed)
+                                 when a proposal is pending.
+
+  apply [--dry-run] [-y]         Apply the stored proposal via the controller.
+                                 --dry-run prints the proposed manifest without
+                                 applying it. -y skips the confirmation prompt.
+
+  down                           Stop all services, keep their volumes.
+
+  destroy [-y]                   Stop services and remove all volumes.
+                                 Irreversible. -y skips the confirmation prompt.
+
+  status                         Show health of each service in the stack.
+
+  ls                             List every project that has an active stack.
+
+  logs <service> [--follow]      Stream logs for a named service.
+                                 --follow tails live output.
+
+  image-allow <registry>         Append a registry to docker/image-allowlist.txt.
+                                 Restart the controller to apply:
+                                   gbx restart controller`)
 }
 
 // isKnownTopLevel reports whether the first positional argv is one of the

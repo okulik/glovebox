@@ -57,22 +57,36 @@ type CLI struct {
 
 func main() {
 	resolveLibexec()
+
 	// Bash/zsh/fish completion: kongplete reads COMP_LINE inside parser.Parse
 	// and exits, so route straight to Kong with no rewriting.
 	if os.Getenv("COMP_LINE") != "" {
 		runKong(os.Args[1:])
 		return
 	}
+
 	// Bare invocation and explicit `help` both print the multi-section usage.
 	if len(os.Args) == 1 || os.Args[1] == "help" {
 		printUsage()
 		return
 	}
-	// `gbx stack` with no subcommand prints stack-only usage.
-	if os.Args[1] == "stack" && len(os.Args) == 2 {
-		printStackUsage()
-		return
+
+	// `gbx mount` with no subcommand, or `gbx mount --help` / `-h`.
+	if os.Args[1] == "mount" {
+		if len(os.Args) == 2 || os.Args[2] == "--help" || os.Args[2] == "-h" {
+			printMountUsage()
+			return
+		}
 	}
+
+	// `gbx stack` with no subcommand, or `gbx stack --help` / `-h`.
+	if os.Args[1] == "stack" {
+		if len(os.Args) == 2 || os.Args[2] == "--help" || os.Args[2] == "-h" {
+			printStackUsage()
+			return
+		}
+	}
+
 	// Resolve `-p <pid-prefix>` once so the prefix is checked before any
 	// subcommand work; the resolved full pid is exposed to downstream commands
 	// via GBX_OVERRIDE_PID. The same flag is also wired into Kong (cli.PFlag)
@@ -91,6 +105,7 @@ func main() {
 			return
 		}
 	}
+
 	// Reject unknown top-level commands with a one-line error rather than
 	// Kong's verbose "unexpected argument" message.
 	if !isKnownTopLevel(args[0]) {
