@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/okulik/glovebox/internal/fsx"
 	"github.com/okulik/glovebox/internal/manifest"
 )
 
@@ -149,9 +150,5 @@ func (s *Store) flush() error {
 	if err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, s.path)
+	return fsx.WriteAtomic(s.path, b, 0o600)
 }

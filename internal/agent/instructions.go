@@ -1,12 +1,13 @@
 package agent
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/okulik/glovebox/internal/fsx"
 )
 
 // instructionsMarkerBegin / instructionsMarkerEnd delimit the glovebox-owned
@@ -117,7 +118,7 @@ func writeInstructionsFile(path, block string) error {
 	if out == string(existing) {
 		return nil
 	}
-	return atomicWriteString(path, out, 0o644)
+	return fsx.WriteAtomic(path, []byte(out), 0o644)
 }
 
 // replaceMarkedBlock swaps the bytes between (and including) the begin/end
@@ -135,40 +136,4 @@ func replaceMarkedBlock(existing, block string) string {
 		endIdx++
 	}
 	return existing[:beginIdx] + block + existing[endIdx:]
-}
-
-// atomicWriteString writes data to path via a tempfile + rename so a partial
-// write can never produce a half-formed instruction file.
-func atomicWriteString(path, data string, mode os.FileMode) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".*")
-	if err != nil {
-		return fmt.Errorf("create temp in %s: %w", dir, err)
-	}
-	tmpName := tmp.Name()
-	w := bufio.NewWriter(tmp)
-	if _, err := w.WriteString(data); err != nil {
-		tmp.Close()
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("write %s: %w", tmpName, err)
-	}
-	if err := w.Flush(); err != nil {
-		tmp.Close()
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("flush %s: %w", tmpName, err)
-	}
-	if err := tmp.Chmod(mode); err != nil {
-		tmp.Close()
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("chmod %s: %w", tmpName, err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("close %s: %w", tmpName, err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("rename %s -> %s: %w", tmpName, path, err)
-	}
-	return nil
 }

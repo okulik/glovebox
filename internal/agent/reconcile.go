@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+
+	"github.com/okulik/glovebox/internal/fsx"
 )
 
 // deepMergeJSON merges the default value src into the existing value dst and
@@ -163,7 +165,7 @@ func reconcileSettings(dstPath, srcPath string) (bool, error) {
 	if bytes.Equal(out, existing) {
 		return false, nil
 	}
-	if err := atomicWriteString(dstPath, string(out), 0o644); err != nil {
+	if err := fsx.WriteAtomic(dstPath, out, 0o644); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -186,7 +188,7 @@ func reconcileOverwrite(dstPath, srcPath string, mode os.FileMode) (bool, error)
 	if bytes.Equal(src, existing) {
 		return false, nil
 	}
-	if err := atomicWriteString(dstPath, string(src), mode); err != nil {
+	if err := fsx.WriteAtomic(dstPath, src, mode); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/okulik/glovebox/internal/fsx"
 )
 
 // ActivePID returns the pid recorded in ${configDir}/active-project, or the
@@ -61,16 +63,8 @@ func WriteActive(configDir, pid, workspace string) error {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 	final := filepath.Join(configDir, "active-project")
-	tmp := fmt.Sprintf("%s.%d.tmp", final, os.Getpid())
 	content := []byte(pid + "\n" + workspace + "\n")
-	if err := os.WriteFile(tmp, content, 0o600); err != nil {
-		return fmt.Errorf("write tmp: %w", err)
-	}
-	if err := os.Rename(tmp, final); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("rename tmp -> active-project: %w", err)
-	}
-	return nil
+	return fsx.WriteAtomic(final, content, 0o600)
 }
 
 // removedDefaultMarker is a one-shot file written by project.Remove when it
@@ -89,15 +83,7 @@ func MarkRemovedDefault(configDir, pid string) error {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 	final := filepath.Join(configDir, removedDefaultMarker)
-	tmp := fmt.Sprintf("%s.%d.tmp", final, os.Getpid())
-	if err := os.WriteFile(tmp, []byte(pid+"\n"), 0o600); err != nil {
-		return fmt.Errorf("write tmp: %w", err)
-	}
-	if err := os.Rename(tmp, final); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("rename tmp -> %s: %w", removedDefaultMarker, err)
-	}
-	return nil
+	return fsx.WriteAtomic(final, []byte(pid+"\n"), 0o600)
 }
 
 // ConsumeRemovedDefault reads the marker and removes it. Returns an empty pid

@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/okulik/glovebox/internal/fsx"
 )
 
 // dockerfileName is the generated layered Dockerfile written into the project
@@ -106,7 +108,7 @@ func Store(stateProjDir, content string, ts time.Time) (string, error) {
 		return "", fmt.Errorf("create plugins dir: %w", err)
 	}
 	id := HashID(content, ts)
-	if err := atomicWrite(filepath.Join(dir, id), content); err != nil {
+	if err := fsx.WriteAtomic(filepath.Join(dir, id), []byte(content), 0o600); err != nil {
 		return "", err
 	}
 	return id, nil
@@ -118,7 +120,7 @@ func Overwrite(p Plugin, content string) error {
 	if err := Validate(content); err != nil {
 		return err
 	}
-	return atomicWrite(p.Path, content)
+	return fsx.WriteAtomic(p.Path, []byte(content), 0o600)
 }
 
 // Remove deletes a plugin's fragment file.
@@ -133,32 +135,8 @@ func Remove(p Plugin) error {
 // <stateProjDir>/Dockerfile.plugins and returns its path.
 func WriteDockerfile(stateProjDir, base string, plugins []Plugin) (string, error) {
 	path := filepath.Join(stateProjDir, dockerfileName)
-	if err := atomicWrite(path, GenerateDockerfile(base, plugins)); err != nil {
+	if err := fsx.WriteAtomic(path, []byte(GenerateDockerfile(base, plugins)), 0o600); err != nil {
 		return "", err
 	}
 	return path, nil
-}
-
-// atomicWrite writes content to path via a sibling temp file + rename.
-func atomicWrite(path, content string) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".write-*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temp in %s: %w", dir, err)
-	}
-	tmpName := tmp.Name()
-	if _, err := tmp.WriteString(content); err != nil {
-		tmp.Close()
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("write %s: %w", tmpName, err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("close %s: %w", tmpName, err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("rename %s -> %s: %w", tmpName, path, err)
-	}
-	return nil
 }

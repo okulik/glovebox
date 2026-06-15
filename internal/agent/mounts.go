@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/okulik/glovebox/internal/fsx"
 )
 
 // Mount is one host:container bind mount applied to the agent container in
@@ -148,31 +150,10 @@ func ReadMounts(stateProjDir string) ([]Mount, error) {
 // destination. The destination directory must already exist.
 func WriteMounts(stateProjDir string, mounts []Mount) error {
 	path := filepath.Join(stateProjDir, mountsFilename)
-	tmp, err := os.CreateTemp(stateProjDir, mountsFilename+".*")
-	if err != nil {
-		return fmt.Errorf("create temp in %s: %w", stateProjDir, err)
-	}
-	tmpName := tmp.Name()
-	w := bufio.NewWriter(tmp)
+	var buf strings.Builder
 	for _, m := range mounts {
-		if _, err := fmt.Fprintln(w, m.String()); err != nil {
-			tmp.Close()
-			_ = os.Remove(tmpName)
-			return fmt.Errorf("write %s: %w", tmpName, err)
-		}
+		buf.WriteString(m.String())
+		buf.WriteString("\n")
 	}
-	if err := w.Flush(); err != nil {
-		tmp.Close()
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("flush %s: %w", tmpName, err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("close %s: %w", tmpName, err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("rename %s -> %s: %w", tmpName, path, err)
-	}
-	return nil
+	return fsx.WriteAtomic(path, []byte(buf.String()), 0o600)
 }
