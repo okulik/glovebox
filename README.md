@@ -145,6 +145,7 @@ use the global `-p` flag to target another.
 | `gbx rebuild --controller`                                   | Rebuild `glovebox-stack-controller:local` from source and recreate it.   |
 | `gbx state-size [<id>]`                                       | Disk usage of one project plus the shared caches.                        |
 | `gbx mount <subcommand>`                                      | Per-project extra bind mounts - see below.                               |
+| `gbx plugin <subcommand>`                                     | Per-project Dockerfile plugins - see below.                              |
 
 #### `gbx mount` - extra bind mounts
 
@@ -178,6 +179,36 @@ Container paths claimed by the runtime (`/workspace`, `/home/gbx/.claude`,
 are symlink-resolved so the on-disk record matches what Docker actually
 mounts. Changes take effect on the next `gbx mount apply` (or the next
 `gbx rebuild` / `gbx new`).
+
+#### `gbx plugin` - custom image content
+
+The agent image is shared across projects. To add project-specific tools or
+packages without forking the base Dockerfile, use plugins - Dockerfile
+fragments layered on top of the base image.
+
+```sh
+gbx plugin add            # opens $EDITOR with an instructional template
+gbx plugin ls             # list this project's plugins
+gbx plugin edit <id>      # edit a fragment
+gbx plugin rm <id>        # remove a fragment
+gbx rebuild               # apply: builds glovebox-agent-<pid>:local and recreates the container
+```
+
+Each fragment must start with a description line:
+
+```dockerfile
+# gbx:description: install httpie and ripgrep
+RUN uv tool install httpie
+```
+
+Rules: no `FROM` line (it is generated for you) and no `ADD` (use `COPY` or
+`RUN curl`). The build runs as root; the container still runs as the `gbx`
+user. A project with no plugins keeps running the shared base image.
+
+Plugin changes apply only on the next `gbx rebuild`: `add` and `edit` alone
+change nothing at runtime, and removing the last plugin does NOT revert the
+project to the base image on a plain `gbx start`/`restart` - the stale
+`glovebox-agent-<pid>:local` image is only dropped when you run `gbx rebuild`.
 
 ### `gbx run` - work in a project's agent
 
@@ -374,9 +405,14 @@ Shared caches live at `state/shared/`:
 | `shell-history/` | bash history (debug aid) |
 
 `gbx rebuild` recreates a project's agent container from a fresh
-image without touching this state. `gbx rm <id>` removes only the
-container by default; pass `--delete-state` to also wipe the
-per-project directory.
+image without touching this state. For a project with plugins it also
+builds or refreshes the derived `glovebox-agent-<pid>:local` image (base
+image + the project's fragments); for a project with none it drops any
+stale derived image so the container reverts to the base image. That
+revert happens only on `gbx rebuild` - removing the last plugin does not
+change a running or restarted container until you rebuild. `gbx rm <id>`
+removes only the container by default; pass `--delete-state` to also wipe
+the per-project directory.
 
 `gbx rebuild --controller` is the control-plane equivalent: it
 rebuilds the singleton `glovebox-stack-controller:local` image from

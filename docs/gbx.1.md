@@ -64,7 +64,13 @@ applies to every command that doesn't pass **-p**.
     image from source and recreate its container instead — use this to pick up
     new controller code (e.g. added API routes) that `gbx up` would skip
     because the image already exists. `--controller` cannot be combined with an
-    *id* or `--all`.
+    *id* or `--all`. When the target project has plugins, rebuild also builds
+    the derived `glovebox-agent-<pid>:local` image (base image + the project's
+    fragments) and recreates the container from it. When a project has no
+    plugins, any stale derived image is removed and the container reverts to
+    the base image — `gbx rebuild` is the only command that does this, so after
+    removing the last plugin a plain `gbx start`/`restart` keeps using the
+    existing derived image until the next rebuild.
 
 `gbx state-size` [*id*]
 :   Show disk usage of one project's state directories plus the shared caches.
@@ -86,6 +92,27 @@ applies to every command that doesn't pass **-p**.
 `gbx mount apply`
 :   Force-remove the agent container and recreate it so the current mount
     set takes effect.
+
+`gbx plugin add`
+:   Open `$EDITOR` (or `$VISUAL`) on a new Dockerfile fragment seeded with
+    instructions. The fragment must contain a `# gbx:description: <text>`
+    line; on save it is stored at
+    `$GBX_CONFIG_DIR/state/projects/<pid>/plugins/<pluginid>`. Plugins are
+    layered on top of the base `glovebox-agent:local` image; a project with
+    one or more plugins runs a derived `glovebox-agent-<pid>:local` image.
+    Accepts `-p <id>` and otherwise targets the default project. Changes
+    apply on the next `gbx rebuild`.
+
+`gbx plugin edit` *id-or-prefix*
+:   Edit an existing fragment (id prefix accepted). The id is preserved.
+
+`gbx plugin ls` [`--all`]
+:   List the project's plugins (id, last-modified, description). `--all`
+    lists every project's plugins, adding a project column.
+
+`gbx plugin rm` *id-or-prefix* [`-y`]
+:   Remove a fragment (id prefix accepted). `-y` skips the confirmation
+    prompt.
 
 ## AGENT COMMANDS
 
