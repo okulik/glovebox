@@ -14,10 +14,6 @@ import (
 	"github.com/okulik/glovebox/internal/plugin"
 )
 
-const (
-	projectsPath = "projects"
-)
-
 // PluginCmd is the `gbx plugin ...` group. All subcommands target the pid
 // resolved by targetPID() (`-p <id>` if set, else the active project).
 //

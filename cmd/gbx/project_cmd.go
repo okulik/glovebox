@@ -12,6 +12,7 @@ import (
 	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
+	"github.com/okulik/glovebox/internal/plugin"
 	"github.com/okulik/glovebox/internal/project"
 	"github.com/okulik/glovebox/internal/state"
 )
@@ -93,7 +94,7 @@ func (c *ProjectRmCmd) Run(kctx *kong.Context) error {
 	// Build the list of pids to remove.
 	var pids []string
 	if c.All {
-		entries, err := os.ReadDir(filepath.Join(stateDir, "projects"))
+		entries, err := os.ReadDir(filepath.Join(stateDir, projectsPath))
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Fprintln(kctx.Stdout, "No projects to remove.")
@@ -157,12 +158,13 @@ var ensureAgentFn project.EnsureAgentFn = func(ctx context.Context, dc dockerx.C
 	if gcfg.TestMode {
 		labels = map[string]string{"io.glovebox.test": "1"}
 	}
+	image := plugin.SelectImage(ctx, hostDocker, gcfg.AgentImage, pid)
 	return agent.Ensure(ctx, agent.EnsureSpec{
 		Docker: dc,
 		Create: agent.CreateSpec{
 			PID:            pid,
 			Workspace:      ws,
-			Image:          gcfg.AgentImage,
+			Image:          image,
 			StateProjDir:   stateProjDir,
 			StateSharedDir: stateDir + "/shared",
 			DockerDir:      libexec + "/docker",

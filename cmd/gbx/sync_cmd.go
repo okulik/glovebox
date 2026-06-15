@@ -26,7 +26,7 @@ func (c *SyncCmd) Run(kctx *kong.Context) error {
 
 	var pids []string
 	if c.All {
-		entries, err := os.ReadDir(filepath.Join(stateDir, "projects"))
+		entries, err := os.ReadDir(filepath.Join(stateDir, projectsPath))
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Fprintln(kctx.Stdout, "No projects to sync.")
@@ -60,7 +60,7 @@ func (c *SyncCmd) Run(kctx *kong.Context) error {
 	anyChanged := false
 	failed := false
 	for _, pid := range pids {
-		stateProjDir := filepath.Join(stateDir, "projects", pid)
+		stateProjDir := filepath.Join(stateDir, projectsPath, pid)
 		changed, err := agent.ReconcileState(stateProjDir, dockerDir)
 		if err != nil {
 			fmt.Fprintf(kctx.Stderr, "sync %s: %v\n", pid, err)

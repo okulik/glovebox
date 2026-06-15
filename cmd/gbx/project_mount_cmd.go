@@ -29,7 +29,7 @@ func projectMountStateDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(stateDirFromEnv(), "projects", pid)
+	dir := filepath.Join(stateDirFromEnv(), projectsPath, pid)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create state dir for %s: %w", pid, err)
 	}
@@ -144,7 +144,7 @@ func (c *ProjectMountApplyCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	wsfile := filepath.Join(stateDirFromEnv(), "projects", pid, "workspace-path")
+	wsfile := filepath.Join(stateDirFromEnv(), projectsPath, pid, workspacePathFile)
 	data, err := os.ReadFile(wsfile)
 	if err != nil {
 		return fmt.Errorf("Project %s has no recorded workspace.", pid)

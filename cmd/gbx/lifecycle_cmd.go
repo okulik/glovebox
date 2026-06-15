@@ -15,6 +15,7 @@ import (
 	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
+	"github.com/okulik/glovebox/internal/plugin"
 	"github.com/okulik/glovebox/internal/stack"
 )
 
@@ -57,7 +58,7 @@ func (c *ProjectStartCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	wsfile := filepath.Join(stateDirFromEnv(), "projects", pid, "workspace-path")
+	wsfile := filepath.Join(stateDirFromEnv(), projectsPath, pid, workspacePathFile)
 	data, err := os.ReadFile(wsfile)
 	if err != nil {
 		return fmt.Errorf("Project %s has no recorded workspace.", pid)
@@ -153,10 +154,10 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 
 	var pids []string
 	if c.All {
-		projectsPath := filepath.Join(stateDirFromEnv(), "projects")
-		entries, err := os.ReadDir(projectsPath)
+		projectsDir := filepath.Join(stateDirFromEnv(), projectsPath)
+		entries, err := os.ReadDir(projectsDir)
 		if err != nil {
-			return fmt.Errorf("can't read '%s' folder: %w", projectsPath, err)
+			return fmt.Errorf("can't read '%s' folder: %w", projectsDir, err)
 		}
 		for _, e := range entries {
 			if e.IsDir() {
@@ -172,14 +173,42 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 	}
 
 	ctx := context.Background()
+	base := config.GbxFromEnv().AgentImage
 	for _, pid := range pids {
-		wsfile := filepath.Join(stateDirFromEnv(), "projects", pid, "workspace-path")
+		stateProjDir := filepath.Join(stateDirFromEnv(), projectsPath, pid)
+		wsfile := filepath.Join(stateProjDir, workspacePathFile)
 		data, err := os.ReadFile(wsfile)
 		if err != nil {
 			fmt.Fprintf(kctx.Stderr, "Skipping %s: no workspace recorded.\n", pid)
 			continue
 		}
 		ws := strings.TrimRight(string(data), "\r\n")
+
+		plugins, err := plugin.List(stateProjDir)
+		if err != nil {
+			return fmt.Errorf("list plugins for %s: %w", pid, err)
+		}
+		derived := plugin.DerivedImageTag(base, pid)
+		if len(plugins) > 0 {
+			dfPath, werr := plugin.WriteDockerfile(stateProjDir, base, plugins)
+			if werr != nil {
+				return fmt.Errorf("write Dockerfile for %s: %w", pid, werr)
+			}
+			if berr := hostDocker.BuildImage(ctx, dockerx.BuildSpec{
+				Tag:        derived,
+				Dockerfile: dfPath,
+				Context:    plugin.Dir(stateProjDir),
+			}); berr != nil {
+				return fmt.Errorf("build plugin image for %s: %w", pid, berr)
+			}
+		} else if hostDocker.ImageExists(ctx, derived) {
+			// No plugins remain: drop the stale derived image so the project
+			// cleanly reverts to the base on the next ensure. Best-effort -
+			// RemoveImage is itself best-effort (a missing/locked image is not
+			// fatal), so a failure here must not abort the rebuild.
+			_ = hostDocker.RemoveImage(ctx, derived)
+		}
+
 		containerName := "glovebox-agent-" + pid
 		if err := hostDocker.ForceRemoveContainer(ctx, containerName); err != nil {
 			return fmt.Errorf("can't force remove container '%s': %w", containerName, err)
@@ -206,7 +235,7 @@ func (c *ProjectStateSizeCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	projDir := filepath.Join(stateDirFromEnv(), "projects", pid)
+	projDir := filepath.Join(stateDirFromEnv(), projectsPath, pid)
 	fmt.Fprintf(kctx.Stdout, "PROJECT %s\n", pid)
 	fmt.Fprintf(kctx.Stdout, "%-12s %s\n", "DIR", "SIZE")
 	for _, d := range []string{"claude", "codex", "opencode", "pi", "gemini", "aider", "hermes"} {

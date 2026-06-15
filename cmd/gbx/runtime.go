@@ -17,6 +17,18 @@ import (
 	"github.com/okulik/glovebox/internal/state"
 )
 
+const (
+	// projectsPath is the directory segment under the state dir that holds the
+	// per-project subdirectories (state/projects/<pid>/...). Shared by every
+	// command that resolves a project's state dir.
+	projectsPath = "projects"
+
+	// workspacePathFile is the per-project file that records the registered
+	// workspace's absolute path (state/projects/<pid>/workspace-path). Written by
+	// internal/project on registration; read here to locate a project's workspace.
+	workspacePathFile = "workspace-path"
+)
+
 // hostDocker is the dockerx.Host instance used by every command in cmd/gbx.
 // Initialized lazily by requireDocker (the gate every Docker-touching command
 // passes through) so the SDK client's construction error can be surfaced as a
@@ -160,7 +172,7 @@ func ensureTargetAgent(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	wsfile := filepath.Join(stateDirFromEnv(), "projects", pid, "workspace-path")
+	wsfile := filepath.Join(stateDirFromEnv(), projectsPath, pid, workspacePathFile)
 	wsData, err := os.ReadFile(wsfile)
 	if err != nil {
 		return "", fmt.Errorf("Project %s has no recorded workspace. Run 'gbx new <path>' for it first.", pid)
