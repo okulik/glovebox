@@ -6,6 +6,7 @@ package agent
 import (
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
@@ -16,11 +17,9 @@ import (
 // CreateSpec holds the inputs needed to compute the per-project agent
 // container's Docker API configs. All fields are required (zero values yield
 // broken args). HostEnv may be an empty map but must not be nil. ExtraMounts
-// may be nil. Field order favors readability (related fields grouped) over
-// the few bytes fieldalignment suggests; this struct is built once per
-// agent-create and the layout savings are noise.
+// may be nil.
 //
-//nolint:govet // fieldalignment: built rarely, group-by-meaning beats packing.
+//nolint:govet // fieldalignment
 type CreateSpec struct {
 	PID            string
 	Workspace      string
@@ -37,8 +36,7 @@ type CreateSpec struct {
 }
 
 // hostEnvKeys is the canonical list of host environment keys forwarded into
-// the agent container. Unset keys are forwarded with an empty value so that
-// agent code probing for them sees the key defined (just blank).
+// the agent container.
 var hostEnvKeys = []string{
 	"ANTHROPIC_API_KEY",
 	"OPENAI_API_KEY",
@@ -53,10 +51,14 @@ var hostEnvKeys = []string{
 	"GOOGLE_APPLICATION_CREDENTIALS",
 }
 
-// AgentNetwork is the per-project agent's primary network - the same one
-// the egress proxy and stack-controller sit on, so the agent can reach
-// `http://proxy:3128` and the stack-controller's internal listener by alias.
-const AgentNetwork = "glovebox-internal"
+const (
+	// AgentNetwork is the per-project agent's primary network - the same one
+	// the egress proxy and stack-controller sit on, so the agent can reach
+	// `http://proxy:3128` and the stack-controller's internal listener by alias.
+	AgentNetwork = "glovebox-internal"
+	// Default stack controller internal host name.
+	StackControllerHost = "http://stack-controller"
+)
 
 // agentControllerURL is the in-network URL the agent uses to reach the
 // stack-controller. The port follows CONTROLLER_INTERNAL_ADDR so an
@@ -66,15 +68,14 @@ func agentControllerURL() string {
 	addr := config.ControllerFromEnv().InternalAddr
 	_, port, err := net.SplitHostPort(addr)
 	if err != nil || port == "" {
-		port = "7000" // fall back to the default if HostAddr is malformed.
+		// InternalAddr was malformed; fall back to the package default's port.
+		_, port, _ = net.SplitHostPort(config.DefaultControllerInternalAddr)
 	}
-	return "http://stack-controller:" + port
+	return StackControllerHost + ":" + port
 }
 
 // BuildCreateConfig computes the typed Docker API configs for `docker create`
-// of an agent container, plus the resolved container name. It is the typed
-// successor to the legacy BuildCreateArgs (which produced an argv slice for
-// `exec.Command("docker", "create", ...)`).
+// of an agent container, plus the resolved container name.
 func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *container.HostConfig, netCfg *network.NetworkingConfig, name string) {
 	name = "glovebox-agent-" + spec.PID
 
@@ -84,16 +85,14 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 		"NO_PROXY=localhost,127.0.0.1,stack-controller",
 		"GBX_PROJECT_ID=" + spec.PID,
 		"GBX_CONTROLLER_URL=" + agentControllerURL(),
-	}
-	for _, key := range hostEnvKeys {
-		env = append(env, fmt.Sprintf("%s=%s", key, spec.HostEnv[key]))
-	}
-	env = append(env,
 		"AIDER_INPUT_HISTORY_FILE=/home/gbx/.aider/.aider.input.history",
 		"AIDER_CHAT_HISTORY_FILE=/home/gbx/.aider/.aider.chat.history.md",
 		"UV_TOOL_DIR=/home/gbx/.local/share/uv-tools",
 		"UV_TOOL_BIN_DIR=/home/gbx/.local/bin",
-	)
+	}
+	for _, key := range hostEnvKeys {
+		env = append(env, fmt.Sprintf("%s=%s", key, spec.HostEnv[key]))
+	}
 
 	cfg = &container.Config{
 		Image:      spec.Image,
@@ -147,3 +146,7 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 
 	return cfg, hostCfg, netCfg, name
 }
+
+// HostUser formats the host uid:gid as a Docker `User` string for container
+// create and exec.
+func HostUser() string { return fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()) }

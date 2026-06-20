@@ -25,13 +25,19 @@ type ControllerConfig struct {
 	HostAddr string
 }
 
+// DefaultControllerInternalAddr is the default for CONTROLLER_INTERNAL_ADDR
+// (the controller's agent-facing HTTP listener). Single source of truth for the
+// default, shared by ControllerFromEnv and the agent's outgoing-URL fallback in
+// internal/agent.
+const DefaultControllerInternalAddr = ":7000"
+
 // ControllerFromEnv reads the CONTROLLER_* env vars and applies defaults.
 func ControllerFromEnv() ControllerConfig {
 	return ControllerConfig{
 		DockerHost:         envOr("CONTROLLER_DOCKER_HOST", "tcp://socket-proxy:2375"),
 		StateDir:           envOr("CONTROLLER_STATE_DIR", "/state"),
 		ImageAllowlistPath: envOr("CONTROLLER_IMAGE_ALLOWLIST", "/config/image-allowlist.txt"),
-		InternalAddr:       envOr("CONTROLLER_INTERNAL_ADDR", ":7000"),
+		InternalAddr:       envOr("CONTROLLER_INTERNAL_ADDR", DefaultControllerInternalAddr),
 		HostAddr:           envOr("CONTROLLER_HOST_ADDR", ":7001"),
 	}
 }

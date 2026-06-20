@@ -17,7 +17,7 @@ build:
 .PHONY: man
 man:
 	command -v go-md2man >/dev/null 2>&1 || { \
-	  echo 'go-md2man not on PATH. Install with: go install github.com/cpuguy83/go-md2man/v2latest' >&2; \
+	  echo 'go-md2man not on PATH. Install with: go install github.com/cpuguy83/go-md2man/v2@latest' >&2; \
 	  exit 1; \
 	}
 	mkdir -p share/man/man1

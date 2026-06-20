@@ -12,7 +12,6 @@ import (
 
 	"github.com/alecthomas/kong"
 
-	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/plugin"
@@ -283,8 +282,8 @@ func agentBuildSpec(libexec string) dockerx.BuildSpec {
 		Dockerfile: filepath.Join(libexec, "docker", "Dockerfile"),
 		Context:    libexec,
 		Args: map[string]string{
-			"HOST_UID": strconv.Itoa(agent.HostUID()),
-			"HOST_GID": strconv.Itoa(agent.HostGID()),
+			"HOST_UID": strconv.Itoa(os.Getuid()),
+			"HOST_GID": strconv.Itoa(os.Getgid()),
 		},
 	}
 }
