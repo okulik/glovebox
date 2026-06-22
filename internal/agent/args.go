@@ -52,12 +52,9 @@ var hostEnvKeys = []string{
 }
 
 const (
-	// AgentNetwork is the per-project agent's primary network - the same one
-	// the egress proxy and stack-controller sit on, so the agent can reach
-	// `http://proxy:3128` and the stack-controller's internal listener by alias.
-	AgentNetwork = "glovebox-internal"
-	// Default stack controller internal host name.
-	StackControllerHost = "http://stack-controller"
+	AgentNetwork         = "glovebox-internal"
+	AgentContainerPrefix = "glovebox-agent-"
+	StackControllerHost  = "http://stack-controller"
 )
 
 // agentControllerURL is the in-network URL the agent uses to reach the
@@ -65,10 +62,8 @@ const (
 // operator who overrides the controller's listener stays in sync with the
 // agent's outgoing requests.
 func agentControllerURL() string {
-	addr := config.ControllerFromEnv().InternalAddr
-	_, port, err := net.SplitHostPort(addr)
+	_, port, err := net.SplitHostPort(config.ControllerFromEnv().InternalAddr)
 	if err != nil || port == "" {
-		// InternalAddr was malformed; fall back to the package default's port.
 		_, port, _ = net.SplitHostPort(config.DefaultControllerInternalAddr)
 	}
 	return StackControllerHost + ":" + port
@@ -76,22 +71,21 @@ func agentControllerURL() string {
 
 // BuildCreateConfig computes the typed Docker API configs for `docker create`
 // of an agent container, plus the resolved container name.
-func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *container.HostConfig, netCfg *network.NetworkingConfig, name string) {
-	name = "glovebox-agent-" + spec.PID
+func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *container.HostConfig, netCfg *network.NetworkingConfig, containerName string) {
+	env := buildEnvVars(spec)
+	binds := buildBinds(spec)
 
-	env := []string{
-		"HTTPS_PROXY=http://proxy:3128",
-		"HTTP_PROXY=http://proxy:3128",
-		"NO_PROXY=localhost,127.0.0.1,stack-controller",
-		"GBX_PROJECT_ID=" + spec.PID,
-		"GBX_CONTROLLER_URL=" + agentControllerURL(),
-		"AIDER_INPUT_HISTORY_FILE=/home/gbx/.aider/.aider.input.history",
-		"AIDER_CHAT_HISTORY_FILE=/home/gbx/.aider/.aider.chat.history.md",
-		"UV_TOOL_DIR=/home/gbx/.local/share/uv-tools",
-		"UV_TOOL_BIN_DIR=/home/gbx/.local/bin",
+	hostCfg = &container.HostConfig{
+		Binds:         binds,
+		RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyUnlessStopped},
+		CapDrop:       []string{"ALL"},
+		SecurityOpt:   []string{"no-new-privileges:true"},
 	}
-	for _, key := range hostEnvKeys {
-		env = append(env, fmt.Sprintf("%s=%s", key, spec.HostEnv[key]))
+
+	netCfg = &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			AgentNetwork: {},
+		},
 	}
 
 	cfg = &container.Config{
@@ -104,6 +98,40 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 		Labels:     spec.Labels,
 	}
 
+	containerName = AgentContainerPrefix + spec.PID
+
+	return
+}
+
+// HostUser formats the host uid:gid as a Docker `User` string for container
+// create and exec.
+func HostUser() string { return fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()) }
+
+func buildEnvVars(spec CreateSpec) []string {
+	envPairs := [][2]string{
+		{"HTTPS_PROXY", "http://proxy:3128"},
+		{"HTTP_PROXY", "http://proxy:3128"},
+		{"NO_PROXY", "localhost,127.0.0.1,stack-controller"},
+		{"GBX_PROJECT_ID", spec.PID},
+		{"GBX_CONTROLLER_URL", agentControllerURL()},
+		{"AIDER_INPUT_HISTORY_FILE", "/home/gbx/.aider/.aider.input.history"},
+		{"AIDER_CHAT_HISTORY_FILE", "/home/gbx/.aider/.aider.chat.history.md"},
+		{"UV_TOOL_DIR", "/home/gbx/.local/share/uv-tools"},
+		{"UV_TOOL_BIN_DIR", "/home/gbx/.local/bin"},
+	}
+	for _, key := range hostEnvKeys {
+		envPairs = append(envPairs, [2]string{key, spec.HostEnv[key]})
+	}
+
+	env := make([]string, 0, len(envPairs))
+	for _, pair := range envPairs {
+		env = append(env, fmt.Sprintf("%s=%s", pair[0], pair[1]))
+	}
+
+	return env
+}
+
+func buildBinds(spec CreateSpec) []string {
 	binds := []string{
 		spec.Workspace + ":/workspace",
 		spec.DockerDir + "/../defaults/docker-sandbox.md:/etc/glovebox/docker-sandbox.md:ro",
@@ -131,22 +159,5 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 		binds = append(binds, v)
 	}
 
-	hostCfg = &container.HostConfig{
-		Binds:         binds,
-		RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyUnlessStopped},
-		CapDrop:       []string{"ALL"},
-		SecurityOpt:   []string{"no-new-privileges:true"},
-	}
-
-	netCfg = &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			AgentNetwork: {},
-		},
-	}
-
-	return cfg, hostCfg, netCfg, name
+	return binds
 }
-
-// HostUser formats the host uid:gid as a Docker `User` string for container
-// create and exec.
-func HostUser() string { return fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()) }
