@@ -32,7 +32,8 @@ func (SystemExecutor) RunStreaming(ctx context.Context, name string, args ...str
 	return cmd.Run()
 }
 
-// Executor abstracts running external commands while supporting input/output streaming.
+// Streamer is the optional interface an Executor may also satisfy to stream a
+// command's stdout/stderr live instead of returning captured output.
 type Streamer interface {
 	RunStreaming(ctx context.Context, name string, args ...string) error
 }

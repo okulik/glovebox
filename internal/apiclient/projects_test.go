@@ -1,10 +1,12 @@
-package apiclient
+package apiclient_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/apiclient"
 )
 
 type recorder struct {
@@ -26,7 +28,7 @@ func TestApply(t *testing.T) {
 	var r recorder
 	srv := newServer(t, &r, 202, `{"status":"applied"}`)
 	defer srv.Close()
-	body, code, err := New(srv.URL).Apply(t.Context(), "hostapply", strings.NewReader("version: 1\n"))
+	body, code, err := apiclient.New(srv.URL).Apply(t.Context(), "hostapply", strings.NewReader("version: 1\n"))
 	if err != nil || code != 202 || string(body) != `{"status":"applied"}` {
 		t.Fatalf("got code=%d err=%v body=%s", code, err, body)
 	}
@@ -39,7 +41,7 @@ func TestDown(t *testing.T) {
 	var r recorder
 	srv := newServer(t, &r, 200, `{}`)
 	defer srv.Close()
-	_, code, err := New(srv.URL).Down(t.Context(), "p1")
+	_, code, err := apiclient.New(srv.URL).Down(t.Context(), "p1")
 	if err != nil || code != 200 {
 		t.Fatalf("code=%d err=%v", code, err)
 	}
@@ -52,7 +54,7 @@ func TestDestroyAlwaysSendsConfirm(t *testing.T) {
 	var r recorder
 	srv := newServer(t, &r, 200, `{}`)
 	defer srv.Close()
-	_, _, err := New(srv.URL).Destroy(t.Context(), "p1")
+	_, _, err := apiclient.New(srv.URL).Destroy(t.Context(), "p1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +70,7 @@ func TestStatus(t *testing.T) {
 	var r recorder
 	srv := newServer(t, &r, 200, `{"state":"ready"}`)
 	defer srv.Close()
-	body, _, err := New(srv.URL).Status(t.Context(), "p1")
+	body, _, err := apiclient.New(srv.URL).Status(t.Context(), "p1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +86,7 @@ func TestListProjects(t *testing.T) {
 	var r recorder
 	srv := newServer(t, &r, 200, `["p1","p2"]`)
 	defer srv.Close()
-	body, _, err := New(srv.URL).ListProjects(t.Context())
+	body, _, err := apiclient.New(srv.URL).ListProjects(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +102,7 @@ func TestLogsWithFollow(t *testing.T) {
 	var r recorder
 	srv := newServer(t, &r, 200, "line1\nline2\n")
 	defer srv.Close()
-	body, _, err := New(srv.URL).Logs(t.Context(), "p1", "redis", true)
+	body, _, err := apiclient.New(srv.URL).Logs(t.Context(), "p1", "redis", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +121,7 @@ func TestLogsWithoutFollow(t *testing.T) {
 	var r recorder
 	srv := newServer(t, &r, 200, "")
 	defer srv.Close()
-	_, _, err := New(srv.URL).Logs(t.Context(), "p1", "redis", false)
+	_, _, err := apiclient.New(srv.URL).Logs(t.Context(), "p1", "redis", false)
 	if err != nil {
 		t.Fatal(err)
 	}

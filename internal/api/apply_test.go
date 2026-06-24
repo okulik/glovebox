@@ -222,17 +222,20 @@ func TestApply_PerProjectMutexSerializes(t *testing.T) {
 			done <- w.Code
 		}()
 	}
-	<-done
-	<-done
+	for range 2 {
+		if code := <-done; code != http.StatusOK {
+			t.Errorf("apply returned %d, want 200", code)
+		}
+	}
 
-	// Second apply should be a no-op: only one pull, one container.
+	// Both applies succeeded but the mutex serialized them, so the second is a
+	// no-op: exactly one pull and one container, not a racing duplicate.
 	if len(fake.PulledImages) != 1 {
 		t.Errorf("expected 1 pull, got %v", fake.PulledImages)
 	}
 	if len(fake.Containers) != 1 {
 		t.Errorf("expected 1 container, got %d", len(fake.Containers))
 	}
-	_ = time.Second // keep time import
 }
 
 func TestApply_FromStoredProposal(t *testing.T) {

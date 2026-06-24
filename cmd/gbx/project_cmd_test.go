@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -152,11 +153,18 @@ func TestProjectLsJSONIncludesImage(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
-	if !strings.Contains(stdout, `"image": "glovebox-agent:local"`) {
-		t.Errorf("project container missing image field: %q", stdout)
+	var root jsonRoot
+	if err := json.Unmarshal([]byte(stdout), &root); err != nil {
+		t.Fatalf("ls --json is not valid JSON: %v\n%s", err, stdout)
 	}
-	if !strings.Contains(stdout, `"image": "glovebox-proxy:local"`) {
-		t.Errorf("other_containers entry missing image field: %q", stdout)
+	if len(root.Projects) != 1 || len(root.Projects[0].Containers) != 1 {
+		t.Fatalf("want one project with one container, got %+v", root.Projects)
+	}
+	if got := root.Projects[0].Containers[0].Image; got != "glovebox-agent:local" {
+		t.Errorf("project container image = %q, want glovebox-agent:local", got)
+	}
+	if len(root.OtherContainers) != 1 || root.OtherContainers[0].Image != "glovebox-proxy:local" {
+		t.Errorf("other_containers = %+v, want one with image glovebox-proxy:local", root.OtherContainers)
 	}
 }
 

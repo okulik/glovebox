@@ -1,4 +1,4 @@
-package apiclient
+package apiclient_test
 
 import (
 	"io"
@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/apiclient"
 )
 
 func TestDoGet(t *testing.T) {
@@ -17,8 +19,8 @@ func TestDoGet(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL)
-	body, code, err := c.do(t.Context(), "GET", "/projects", nil, "")
+	c := apiclient.New(srv.URL)
+	body, code, err := c.Do(t.Context(), "GET", "/projects", nil, "")
 	if err != nil {
 		t.Fatalf("do: %v", err)
 	}
@@ -38,8 +40,8 @@ func TestDoPostWithBody(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":"accepted"}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL)
-	body, code, err := c.do(t.Context(), "POST", "/projects/p1/apply",
+	c := apiclient.New(srv.URL)
+	body, code, err := c.Do(t.Context(), "POST", "/projects/p1/apply",
 		strings.NewReader("version: 1\n"), "text/yaml")
 	if err != nil {
 		t.Fatalf("do: %v", err)
@@ -56,8 +58,8 @@ func TestDoPostWithBody(t *testing.T) {
 }
 
 func TestDoNetworkError(t *testing.T) {
-	c := New("http://127.0.0.1:1") // unlikely to be listening
-	_, _, err := c.do(t.Context(), "GET", "/anything", nil, "")
+	c := apiclient.New("http://127.0.0.1:1") // unlikely to be listening
+	_, _, err := c.Do(t.Context(), "GET", "/anything", nil, "")
 	if err == nil {
 		t.Fatal("want error for unreachable URL")
 	}

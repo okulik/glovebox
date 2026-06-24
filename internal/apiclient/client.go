@@ -27,11 +27,8 @@ func New(baseURL string) *Client {
 	}
 }
 
-// do issues a single HTTP request and returns the response body + status
-// code. Non-2xx responses are NOT treated as errors - the caller (CLI layer)
-// decides what to do with the status. err is only set for network or
-// request-building failures.
-func (c *Client) do(ctx context.Context, method, path string, body io.Reader, contentType string) ([]byte, int, error) {
+// Do issues a single HTTP request.
+func (c *Client) Do(ctx context.Context, method, path string, body io.Reader, contentType string) ([]byte, int, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
 	if err != nil {
 		return nil, 0, fmt.Errorf("build request: %w", err)

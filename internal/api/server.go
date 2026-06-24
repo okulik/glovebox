@@ -49,9 +49,7 @@ func logRequests(label string, h http.Handler) http.Handler {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		h.ServeHTTP(rec, r)
-		// %q on the request-controlled method/path escapes any control
-		// characters (e.g. CRLF) so a crafted request can't forge log lines.
-		//nolint:gosec // G706: %q escapes control chars in the tainted method/path.
+		//nolint:gosec // G706: %q escapes control chars (e.g. CRLF) in the tainted method/path, so a crafted request can't forge log lines.
 		log.Printf("%s %q %q %d %s", label, r.Method, r.URL.Path, rec.status, time.Since(start).Round(time.Millisecond))
 	})
 }

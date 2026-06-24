@@ -29,7 +29,7 @@ func TestPlan_NetworkAndContainerNaming(t *testing.T) {
 	if c.Name != "glovebox-stack-testproj-neo4j" {
 		t.Errorf("name = %q", c.Name)
 	}
-	if c.Aliases[0] != "neo4j" {
+	if len(c.Aliases) != 1 || c.Aliases[0] != "neo4j" {
 		t.Errorf("alias = %v", c.Aliases)
 	}
 	if c.Image != "neo4j:5.20" {

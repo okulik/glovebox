@@ -152,16 +152,23 @@ func (r *controllerClient) RemoveNetwork(ctx context.Context, name string) error
 	return err
 }
 
-func (r *controllerClient) PullImage(ctx context.Context, img string) error {
-	// Skip if present.
+// imageExists reports whether img is already present locally (by RepoTag).
+func (r *controllerClient) imageExists(ctx context.Context, img string) (bool, error) {
 	res, err := r.c.ImageList(ctx, dockerclient.ImageListOptions{})
 	if err != nil {
-		return err
+		return false, err
 	}
 	for _, i := range res.Items {
 		if slices.Contains(i.RepoTags, img) {
-			return nil
+			return true, nil
 		}
+	}
+	return false, nil
+}
+
+func (r *controllerClient) PullImage(ctx context.Context, img string) error {
+	if ok, err := r.imageExists(ctx, img); err != nil || ok {
+		return err
 	}
 	pull, err := r.c.ImagePull(ctx, img, dockerclient.ImagePullOptions{})
 	if err != nil {
@@ -195,16 +202,8 @@ func (r *controllerClient) PullImage(ctx context.Context, img string) error {
 }
 
 func (r *controllerClient) PullImageStream(ctx context.Context, img string, w io.Writer) error {
-	// Same skip-if-present check as PullImage so the streamed variant is
-	// also free when the image is already there.
-	res, err := r.c.ImageList(ctx, dockerclient.ImageListOptions{})
-	if err != nil {
+	if ok, err := r.imageExists(ctx, img); err != nil || ok {
 		return err
-	}
-	for _, i := range res.Items {
-		if slices.Contains(i.RepoTags, img) {
-			return nil
-		}
 	}
 	pull, err := r.c.ImagePull(ctx, img, dockerclient.ImagePullOptions{})
 	if err != nil {
