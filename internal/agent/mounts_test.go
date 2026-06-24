@@ -1,4 +1,4 @@
-package agent
+package agent_test
 
 import (
 	"os"
@@ -6,11 +6,13 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/agent"
 )
 
 func TestParseMountSpecBareHost(t *testing.T) {
 	host := t.TempDir()
-	m, err := ParseMountSpec(host)
+	m, err := agent.ParseMountSpec(host)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -28,7 +30,7 @@ func TestParseMountSpecBareHost(t *testing.T) {
 
 func TestParseMountSpecHostAndContainer(t *testing.T) {
 	host := t.TempDir()
-	m, err := ParseMountSpec(host + ":/data")
+	m, err := agent.ParseMountSpec(host + ":/data")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -42,7 +44,7 @@ func TestParseMountSpecHostAndContainer(t *testing.T) {
 
 func TestParseMountSpecReadOnly(t *testing.T) {
 	host := t.TempDir()
-	m, err := ParseMountSpec(host + ":/data:ro")
+	m, err := agent.ParseMountSpec(host + ":/data:ro")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -53,20 +55,20 @@ func TestParseMountSpecReadOnly(t *testing.T) {
 
 func TestParseMountSpecRejectsBadMode(t *testing.T) {
 	host := t.TempDir()
-	if _, err := ParseMountSpec(host + ":/data:rwx"); err == nil {
+	if _, err := agent.ParseMountSpec(host + ":/data:rwx"); err == nil {
 		t.Fatal("want error for invalid mode")
 	}
 }
 
 func TestParseMountSpecRejectsRelativeContainer(t *testing.T) {
 	host := t.TempDir()
-	if _, err := ParseMountSpec(host + ":data"); err == nil {
+	if _, err := agent.ParseMountSpec(host + ":data"); err == nil {
 		t.Fatal("want error for relative container path")
 	}
 }
 
 func TestParseMountSpecRejectsMissingHost(t *testing.T) {
-	if _, err := ParseMountSpec("/no/such/path/zz:/data"); err == nil {
+	if _, err := agent.ParseMountSpec("/no/such/path/zz:/data"); err == nil {
 		t.Fatal("want error for missing host")
 	}
 }
@@ -74,27 +76,27 @@ func TestParseMountSpecRejectsMissingHost(t *testing.T) {
 func TestParseMountSpecRejectsReservedContainer(t *testing.T) {
 	host := t.TempDir()
 	for _, c := range []string{"/workspace", "/home/gbx/.claude", "/home/gbx/.npm"} {
-		if _, err := ParseMountSpec(host + ":" + c); err == nil {
+		if _, err := agent.ParseMountSpec(host + ":" + c); err == nil {
 			t.Errorf("want error for reserved container %q", c)
 		}
 	}
 }
 
 func TestParseMountSpecRejectsEmpty(t *testing.T) {
-	if _, err := ParseMountSpec(""); err == nil {
+	if _, err := agent.ParseMountSpec(""); err == nil {
 		t.Fatal("want error for empty spec")
 	}
 }
 
 func TestParseMountSpecRejectsTooManyColons(t *testing.T) {
 	host := t.TempDir()
-	if _, err := ParseMountSpec(host + ":/a:rw:extra"); err == nil {
+	if _, err := agent.ParseMountSpec(host + ":/a:rw:extra"); err == nil {
 		t.Fatal("want error for 4-part spec")
 	}
 }
 
 func TestMountString(t *testing.T) {
-	m := Mount{Host: "/h", Container: "/c", Mode: "ro"}
+	m := agent.Mount{Host: "/h", Container: "/c", Mode: "ro"}
 	if m.String() != "/h:/c:ro" {
 		t.Fatalf("String(): got %q", m.String())
 	}
@@ -102,7 +104,7 @@ func TestMountString(t *testing.T) {
 
 func TestReadMountsMissingFile(t *testing.T) {
 	dir := t.TempDir()
-	got, err := ReadMounts(dir)
+	got, err := agent.ReadMounts(dir)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -117,11 +119,11 @@ func TestReadMountsSkipsBlanksAndComments(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "mounts.txt"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := ReadMounts(dir)
+	got, err := agent.ReadMounts(dir)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	want := []Mount{
+	want := []agent.Mount{
 		{Host: "/h1", Container: "/c1", Mode: "rw"},
 		{Host: "/h2", Container: "/c2", Mode: "ro"},
 	}
@@ -135,18 +137,18 @@ func TestReadMountsRejectsMalformedLine(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "mounts.txt"), []byte("/h:/c\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadMounts(dir); err == nil {
+	if _, err := agent.ReadMounts(dir); err == nil {
 		t.Fatal("want error for missing mode")
 	}
 }
 
 func TestWriteMountsAtomicAndRoundTrips(t *testing.T) {
 	dir := t.TempDir()
-	in := []Mount{
+	in := []agent.Mount{
 		{Host: "/h1", Container: "/c1", Mode: "rw"},
 		{Host: "/h2", Container: "/c2", Mode: "ro"},
 	}
-	if err := WriteMounts(dir, in); err != nil {
+	if err := agent.WriteMounts(dir, in); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "mounts.txt"))
@@ -156,7 +158,7 @@ func TestWriteMountsAtomicAndRoundTrips(t *testing.T) {
 	if !strings.Contains(string(data), "/h1:/c1:rw\n") || !strings.Contains(string(data), "/h2:/c2:ro\n") {
 		t.Fatalf("on-disk format mismatch: %q", string(data))
 	}
-	got, err := ReadMounts(dir)
+	got, err := agent.ReadMounts(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,10 +170,10 @@ func TestWriteMountsAtomicAndRoundTrips(t *testing.T) {
 func TestWriteMountsEmptyReplacesFile(t *testing.T) {
 	dir := t.TempDir()
 	_ = os.WriteFile(filepath.Join(dir, "mounts.txt"), []byte("/h1:/c1:rw\n"), 0o644)
-	if err := WriteMounts(dir, nil); err != nil {
+	if err := agent.WriteMounts(dir, nil); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	got, err := ReadMounts(dir)
+	got, err := agent.ReadMounts(dir)
 	if err != nil {
 		t.Fatal(err)
 	}

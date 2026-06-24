@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/okulik/glovebox/internal/config"
 )
 
 // printUsage prints the top-level help. Used by `gbx help` and by the no-args
 // invocation.
 func printUsage() {
-	cfg := configDirFromEnv()
+	cfg := config.GbxFromEnv().ConfigDir
 	fmt.Printf(`Usage: gbx [-p <id>] <command> [args]
 
 Projects (target the default project unless -p <id> is given):

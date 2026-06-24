@@ -11,8 +11,7 @@ import (
 
 	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
-	"github.com/okulik/glovebox/internal/hostconfig"
-	"github.com/okulik/glovebox/internal/projectid"
+	"github.com/okulik/glovebox/internal/project"
 	"github.com/okulik/glovebox/internal/stack"
 	"github.com/okulik/glovebox/internal/state"
 )
@@ -40,14 +39,6 @@ var hostDocker dockerx.HostClient
 // (project status today, the internal/stack package in Phase 4). Like
 // hostDocker, it is constructed from DOCKER_HOST via FromEnv on first need.
 var hostClient dockerx.ControllerClient
-
-// stateDirFromEnv is a thin wrapper over config.GbxFromEnv for the many
-// command files that just want the state dir without pulling the full Config.
-func stateDirFromEnv() string { return config.GbxFromEnv().StateDir }
-
-// configDirFromEnv is a thin wrapper over config.GbxFromEnv for the same
-// shape reason.
-func configDirFromEnv() string { return config.GbxFromEnv().ConfigDir }
 
 // confirmYN prompts on stderr and reads a y/N answer from stdin, returning
 // true only on an explicit "y". A read error (e.g. empty stdin) counts as
@@ -106,7 +97,7 @@ func projectClient() dockerx.ControllerClient {
 
 // requireEnvFile errors if ${GBX_CONFIG_DIR}/.env is missing.
 func requireEnvFile() error {
-	envFile := filepath.Join(configDirFromEnv(), ".env")
+	envFile := filepath.Join(config.GbxFromEnv().ConfigDir, ".env")
 	if _, err := os.Stat(envFile); err != nil {
 		return fmt.Errorf(".env not found at %s - run `gbx new <path>` to bootstrap.", envFile)
 	}
@@ -135,7 +126,7 @@ func ensureStackUp(ctx context.Context) error {
 // empty.
 func resolveProjectTarget(q string) (string, error) {
 	if q == "" {
-		pid, err := state.ActivePID(configDirFromEnv())
+		pid, err := state.ActivePID(config.GbxFromEnv().ConfigDir)
 		if err != nil {
 			return "", err
 		}
@@ -144,7 +135,7 @@ func resolveProjectTarget(q string) (string, error) {
 		}
 		return pid, nil
 	}
-	return projectid.Resolve(stateDirFromEnv(), q)
+	return project.Resolve(config.GbxFromEnv().StateDir, q)
 }
 
 // targetPID resolves the per-invocation pid: GBX_OVERRIDE_PID > active project.
@@ -152,10 +143,10 @@ func targetPID() (string, error) {
 	if p := os.Getenv("GBX_OVERRIDE_PID"); p != "" {
 		return p, nil
 	}
-	if err := state.RequireSomeProject(stateDirFromEnv()); err != nil {
+	if err := state.RequireSomeProject(config.GbxFromEnv().StateDir); err != nil {
 		return "", err
 	}
-	pid, err := state.ActivePID(configDirFromEnv())
+	pid, err := state.ActivePID(config.GbxFromEnv().ConfigDir)
 	if err != nil {
 		return "", err
 	}
@@ -172,7 +163,7 @@ func ensureTargetAgent(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	wsfile := filepath.Join(stateDirFromEnv(), projectsPath, pid, workspacePathFile)
+	wsfile := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid, workspacePathFile)
 	wsData, err := os.ReadFile(wsfile)
 	if err != nil {
 		return "", fmt.Errorf("Project %s has no recorded workspace. Run 'gbx new <path>' for it first.", pid)
@@ -182,18 +173,8 @@ func ensureTargetAgent(ctx context.Context) (string, error) {
 		ws = ws[:len(ws)-1]
 	}
 	libexec := os.Getenv("GBX_LIBEXEC")
-	if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, stateDirFromEnv()); err != nil {
+	if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, config.GbxFromEnv().StateDir); err != nil {
 		return "", err
 	}
 	return "glovebox-agent-" + pid, nil
-}
-
-// bootstrapConfig runs hostconfig.Bootstrap (state skeleton + seed files +
-// sync .env).
-func bootstrapConfig() error {
-	libexec := os.Getenv("GBX_LIBEXEC")
-	if libexec == "" {
-		return errors.New("GBX_LIBEXEC not set")
-	}
-	return hostconfig.Bootstrap(libexec, configDirFromEnv())
 }

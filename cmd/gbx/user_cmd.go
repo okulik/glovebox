@@ -12,6 +12,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/okulik/glovebox/internal/agent"
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/stack"
 )
@@ -119,7 +120,7 @@ func (c *AllowCmd) Run(kctx *kong.Context) error {
 	if i := strings.IndexByte(d, '/'); i >= 0 {
 		d = d[:i]
 	}
-	allowlist := filepath.Join(configDirFromEnv(), "allowlist.txt")
+	allowlist := filepath.Join(config.GbxFromEnv().ConfigDir, "allowlist.txt")
 	if _, err := os.Stat(allowlist); err != nil {
 		return fmt.Errorf("Allowlist not found at %s - run `gbx new <path>` to bootstrap.", allowlist)
 	}

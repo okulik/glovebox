@@ -17,7 +17,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/okulik/glovebox/internal/fsx"
+	"github.com/okulik/glovebox/internal/agent"
 )
 
 // ActivePID returns the pid recorded in ${configDir}/active-project, or the
@@ -64,7 +64,7 @@ func WriteActive(configDir, pid, workspace string) error {
 	}
 	final := filepath.Join(configDir, "active-project")
 	content := []byte(pid + "\n" + workspace + "\n")
-	return fsx.WriteAtomic(final, content, 0o600)
+	return agent.WriteAtomic(final, content, 0o600)
 }
 
 // removedDefaultMarker is a one-shot file written by project.Remove when it
@@ -83,7 +83,7 @@ func MarkRemovedDefault(configDir, pid string) error {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 	final := filepath.Join(configDir, removedDefaultMarker)
-	return fsx.WriteAtomic(final, []byte(pid+"\n"), 0o600)
+	return agent.WriteAtomic(final, []byte(pid+"\n"), 0o600)
 }
 
 // ConsumeRemovedDefault reads the marker and removes it. Returns an empty pid

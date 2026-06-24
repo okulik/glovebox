@@ -1,6 +1,3 @@
-// Package agent owns per-project agent container concerns: docker create-
-// config construction, idempotent container lifecycle, and lazy per-agent
-// binary install/update.
 package agent
 
 import (
@@ -14,30 +11,19 @@ import (
 	"github.com/okulik/glovebox/internal/config"
 )
 
-// CreateSpec holds the inputs needed to compute the per-project agent
-// container's Docker API configs. All fields are required (zero values yield
-// broken args). HostEnv may be an empty map but must not be nil. ExtraMounts
-// may be nil.
-//
-//nolint:govet // fieldalignment
 type CreateSpec struct {
 	PID            string
 	Workspace      string
 	Image          string
 	StateProjDir   string
 	StateSharedDir string
-	DockerDir      string // ${GBX_LIBEXEC}/docker - used to compute the defaults mount path
+	DockerDir      string
 	HostEnv        map[string]string
-	ExtraMounts    []Mount // appended after the fixed mounts; see ReadMounts.
-	// Labels are applied to container.Config.Labels. The host CLI uses this
-	// to set `io.glovebox.test=1` in test mode so the bash cleanup helper
-	// can identify-and-remove test agents with a single `--filter label=...`.
-	Labels map[string]string
+	Labels         map[string]string
+	Mounts         []Mount
 }
 
-// hostEnvKeys is the canonical list of host environment keys forwarded into
-// the agent container.
-var hostEnvKeys = []string{
+var HostEnvVars = []string{
 	"ANTHROPIC_API_KEY",
 	"OPENAI_API_KEY",
 	"OPENROUTER_API_KEY",
@@ -57,10 +43,6 @@ const (
 	StackControllerHost  = "http://stack-controller"
 )
 
-// agentControllerURL is the in-network URL the agent uses to reach the
-// stack-controller. The port follows CONTROLLER_INTERNAL_ADDR so an
-// operator who overrides the controller's listener stays in sync with the
-// agent's outgoing requests.
 func agentControllerURL() string {
 	_, port, err := net.SplitHostPort(config.ControllerFromEnv().InternalAddr)
 	if err != nil || port == "" {
@@ -69,14 +51,9 @@ func agentControllerURL() string {
 	return StackControllerHost + ":" + port
 }
 
-// BuildCreateConfig computes the typed Docker API configs for `docker create`
-// of an agent container, plus the resolved container name.
 func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *container.HostConfig, netCfg *network.NetworkingConfig, containerName string) {
-	env := buildEnvVars(spec)
-	binds := buildBinds(spec)
-
 	hostCfg = &container.HostConfig{
-		Binds:         binds,
+		Binds:         buildBinds(spec),
 		RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyUnlessStopped},
 		CapDrop:       []string{"ALL"},
 		SecurityOpt:   []string{"no-new-privileges:true"},
@@ -94,7 +71,7 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 		User:       HostUser(),
 		WorkingDir: "/workspace",
 		Cmd:        []string{"sleep", "infinity"},
-		Env:        env,
+		Env:        buildEnvVars(spec),
 		Labels:     spec.Labels,
 	}
 
@@ -108,24 +85,26 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 func HostUser() string { return fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()) }
 
 func buildEnvVars(spec CreateSpec) []string {
-	envPairs := [][2]string{
-		{"HTTPS_PROXY", "http://proxy:3128"},
-		{"HTTP_PROXY", "http://proxy:3128"},
-		{"NO_PROXY", "localhost,127.0.0.1,stack-controller"},
-		{"GBX_PROJECT_ID", spec.PID},
-		{"GBX_CONTROLLER_URL", agentControllerURL()},
-		{"AIDER_INPUT_HISTORY_FILE", "/home/gbx/.aider/.aider.input.history"},
-		{"AIDER_CHAT_HISTORY_FILE", "/home/gbx/.aider/.aider.chat.history.md"},
-		{"UV_TOOL_DIR", "/home/gbx/.local/share/uv-tools"},
-		{"UV_TOOL_BIN_DIR", "/home/gbx/.local/bin"},
-	}
-	for _, key := range hostEnvKeys {
-		envPairs = append(envPairs, [2]string{key, spec.HostEnv[key]})
+	envVars := map[string]string{
+		"HTTPS_PROXY":              "http://proxy:3128",
+		"HTTP_PROXY":               "http://proxy:3128",
+		"NO_PROXY":                 "localhost,127.0.0.1,stack-controller",
+		"GBX_PROJECT_ID":           spec.PID,
+		"GBX_CONTROLLER_URL":       agentControllerURL(),
+		"AIDER_INPUT_HISTORY_FILE": "/home/gbx/.aider/.aider.input.history",
+		"AIDER_CHAT_HISTORY_FILE":  "/home/gbx/.aider/.aider.chat.history.md",
+		"UV_TOOL_DIR":              "/home/gbx/.local/share/uv-tools",
+		"UV_TOOL_BIN_DIR":          "/home/gbx/.local/bin",
 	}
 
-	env := make([]string, 0, len(envPairs))
-	for _, pair := range envPairs {
-		env = append(env, fmt.Sprintf("%s=%s", pair[0], pair[1]))
+	// host env vars overwrite internal ones
+	for _, key := range HostEnvVars {
+		envVars[key] = spec.HostEnv[key]
+	}
+
+	env := make([]string, 0, len(envVars))
+	for k, v := range envVars {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	return env
@@ -151,7 +130,9 @@ func buildBinds(spec CreateSpec) []string {
 		spec.StateSharedDir + "/cache:/home/gbx/.cache",
 		spec.StateSharedDir + "/shell-history:/home/gbx/.shell-history",
 	}
-	for _, m := range spec.ExtraMounts {
+
+	// bind additional mounts (added through gbx mount command)
+	for _, m := range spec.Mounts {
 		v := fmt.Sprintf("%s:%s", m.Host, m.Container)
 		if m.Mode == "ro" {
 			v += ":ro"

@@ -4,66 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
-	"reflect"
-
-	"github.com/okulik/glovebox/internal/fsx"
 )
-
-// deepMergeJSON merges the default value src into the existing value dst and
-// returns the result, following glovebox's reconcile rules:
-//
-//   - objects (map[string]any): merged recursively; keys only in src are added,
-//     keys in dst are kept (recursively merged when both are objects).
-//   - arrays ([]any): unioned - every dst element is kept and each src element
-//     not already present (by deep equality) is appended. This makes list-valued
-//     config such as permissions.allow additive.
-//   - anything else (scalars, or a dst/src type mismatch): dst wins.
-//
-// The user's existing value is never overwritten; only missing keys and missing
-// array elements are filled in from the default.
-func deepMergeJSON(dst, src any) any {
-	switch d := dst.(type) {
-	case map[string]any:
-		s, ok := src.(map[string]any)
-		if !ok {
-			return d
-		}
-		out := make(map[string]any, len(d))
-		maps.Copy(out, d)
-		for k, sv := range s {
-			if dv, exists := out[k]; exists {
-				out[k] = deepMergeJSON(dv, sv)
-			} else {
-				out[k] = sv
-			}
-		}
-		return out
-	case []any:
-		s, ok := src.([]any)
-		if !ok {
-			return d
-		}
-		out := append([]any(nil), d...)
-		for _, sv := range s {
-			found := false
-			for _, dv := range out {
-				if reflect.DeepEqual(dv, sv) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				out = append(out, sv)
-			}
-		}
-		return out
-	default:
-		return d
-	}
-}
 
 // ReconcileState brings a project's glovebox-managed on-disk state up to date
 // with the current shipped defaults, without recreating the container:
@@ -110,7 +53,7 @@ func ReconcileState(stateProjDir, dockerDir string) ([]string, error) {
 	for _, rel := range instrFiles {
 		before[rel], _ = os.ReadFile(filepath.Join(stateProjDir, rel))
 	}
-	if err := injectAgentInstructions(stateProjDir, dockerDir); err != nil {
+	if err := InjectAgentInstructions(stateProjDir, dockerDir); err != nil {
 		return nil, err
 	}
 	for _, rel := range instrFiles {
@@ -154,7 +97,7 @@ func reconcileSettings(dstPath, srcPath string) (bool, error) {
 		if uerr := json.Unmarshal(existing, &dst); uerr != nil {
 			return false, fmt.Errorf("parse %s: %w", dstPath, uerr)
 		}
-		merged = deepMergeJSON(dst, src)
+		merged = DeepMergeJSON(dst, src)
 	}
 
 	out, err := json.MarshalIndent(merged, "", "  ")
@@ -165,7 +108,7 @@ func reconcileSettings(dstPath, srcPath string) (bool, error) {
 	if bytes.Equal(out, existing) {
 		return false, nil
 	}
-	if err := fsx.WriteAtomic(dstPath, out, 0o644); err != nil {
+	if err := WriteAtomic(dstPath, out, 0o644); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -188,7 +131,7 @@ func reconcileOverwrite(dstPath, srcPath string, mode os.FileMode) (bool, error)
 	if bytes.Equal(src, existing) {
 		return false, nil
 	}
-	if err := fsx.WriteAtomic(dstPath, src, mode); err != nil {
+	if err := WriteAtomic(dstPath, src, mode); err != nil {
 		return false, err
 	}
 	return true, nil

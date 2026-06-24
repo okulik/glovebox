@@ -1,10 +1,12 @@
-package agent
+package agent_test
 
 import (
 	"context"
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/agent"
 )
 
 // recordingExec captures the commands run by Install/Update so tests can
@@ -24,7 +26,7 @@ func joined(c []string) string { return strings.Join(c, " ") }
 
 func TestInstallClaude(t *testing.T) {
 	r := &recordingExec{}
-	if err := Install(context.Background(), r, "claude"); err != nil {
+	if err := agent.Install(context.Background(), r, "claude"); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 	if len(r.calls) < 1 {
@@ -37,7 +39,7 @@ func TestInstallClaude(t *testing.T) {
 
 func TestInstallCodex(t *testing.T) {
 	r := &recordingExec{}
-	if err := Install(context.Background(), r, "codex"); err != nil {
+	if err := agent.Install(context.Background(), r, "codex"); err != nil {
 		t.Fatal(err)
 	}
 	if joined(r.calls[0]) != "npm install -g @openai/codex" {
@@ -47,7 +49,7 @@ func TestInstallCodex(t *testing.T) {
 
 func TestInstallOpencode(t *testing.T) {
 	r := &recordingExec{}
-	if err := Install(context.Background(), r, "opencode"); err != nil {
+	if err := agent.Install(context.Background(), r, "opencode"); err != nil {
 		t.Fatal(err)
 	}
 	if joined(r.calls[0]) != "npm install -g opencode-ai" {
@@ -57,7 +59,7 @@ func TestInstallOpencode(t *testing.T) {
 
 func TestInstallPi(t *testing.T) {
 	r := &recordingExec{}
-	if err := Install(context.Background(), r, "pi"); err != nil {
+	if err := agent.Install(context.Background(), r, "pi"); err != nil {
 		t.Fatal(err)
 	}
 	if joined(r.calls[0]) != "npm install -g @earendil-works/pi-coding-agent" {
@@ -67,7 +69,7 @@ func TestInstallPi(t *testing.T) {
 
 func TestInstallGemini(t *testing.T) {
 	r := &recordingExec{}
-	if err := Install(context.Background(), r, "gemini"); err != nil {
+	if err := agent.Install(context.Background(), r, "gemini"); err != nil {
 		t.Fatal(err)
 	}
 	if joined(r.calls[0]) != "npm install -g @google/gemini-cli" {
@@ -77,7 +79,7 @@ func TestInstallGemini(t *testing.T) {
 
 func TestInstallAider(t *testing.T) {
 	r := &recordingExec{}
-	if err := Install(context.Background(), r, "aider"); err != nil {
+	if err := agent.Install(context.Background(), r, "aider"); err != nil {
 		t.Fatal(err)
 	}
 	if joined(r.calls[0]) != "uv tool install aider-chat" {
@@ -87,11 +89,11 @@ func TestInstallAider(t *testing.T) {
 
 func TestInstallHermesUsesResolvedTag(t *testing.T) {
 	r := &recordingExec{}
-	origResolver := hermesTagResolver
-	defer func() { hermesTagResolver = origResolver }()
-	hermesTagResolver = func(context.Context) (string, error) { return "v1.2.3", nil }
+	origResolver := agent.HermesTagResolver
+	defer func() { agent.HermesTagResolver = origResolver }()
+	agent.HermesTagResolver = func(context.Context) (string, error) { return "v1.2.3", nil }
 
-	if err := Install(context.Background(), r, "hermes"); err != nil {
+	if err := agent.Install(context.Background(), r, "hermes"); err != nil {
 		t.Fatalf("Install hermes: %v", err)
 	}
 	want := "uv tool install git+https://github.com/NousResearch/hermes-agent@v1.2.3"
@@ -102,11 +104,11 @@ func TestInstallHermesUsesResolvedTag(t *testing.T) {
 
 func TestInstallHermesPropagatesResolverError(t *testing.T) {
 	r := &recordingExec{}
-	origResolver := hermesTagResolver
-	defer func() { hermesTagResolver = origResolver }()
-	hermesTagResolver = func(context.Context) (string, error) { return "", errors.New("offline") }
+	origResolver := agent.HermesTagResolver
+	defer func() { agent.HermesTagResolver = origResolver }()
+	agent.HermesTagResolver = func(context.Context) (string, error) { return "", errors.New("offline") }
 
-	err := Install(context.Background(), r, "hermes")
+	err := agent.Install(context.Background(), r, "hermes")
 	if err == nil {
 		t.Fatal("expected resolver error to propagate")
 	}
@@ -116,7 +118,7 @@ func TestInstallHermesPropagatesResolverError(t *testing.T) {
 }
 
 func TestInstallUnknownAgent(t *testing.T) {
-	err := Install(context.Background(), &recordingExec{}, "nosuch")
+	err := agent.Install(context.Background(), &recordingExec{}, "nosuch")
 	if err == nil {
 		t.Fatal("expected error for unknown agent")
 	}
@@ -127,7 +129,7 @@ func TestInstallUnknownAgent(t *testing.T) {
 
 func TestInstallPropagatesExecutorError(t *testing.T) {
 	r := &recordingExec{err: errors.New("npm exploded")}
-	err := Install(context.Background(), r, "claude")
+	err := agent.Install(context.Background(), r, "claude")
 	if err == nil {
 		t.Fatal("expected error to propagate")
 	}
@@ -138,7 +140,7 @@ func TestInstallPropagatesExecutorError(t *testing.T) {
 
 func TestUpdateClaude(t *testing.T) {
 	r := &recordingExec{}
-	if err := Update(context.Background(), r, "claude"); err != nil {
+	if err := agent.Update(context.Background(), r, "claude"); err != nil {
 		t.Fatal(err)
 	}
 	if joined(r.calls[0]) != "npm install -g @anthropic-ai/claude-code@latest" {
@@ -148,7 +150,7 @@ func TestUpdateClaude(t *testing.T) {
 
 func TestUpdateAider(t *testing.T) {
 	r := &recordingExec{}
-	if err := Update(context.Background(), r, "aider"); err != nil {
+	if err := agent.Update(context.Background(), r, "aider"); err != nil {
 		t.Fatal(err)
 	}
 	if joined(r.calls[0]) != "uv tool upgrade aider-chat" {
@@ -158,11 +160,11 @@ func TestUpdateAider(t *testing.T) {
 
 func TestUpdateHermesUsesResolvedTag(t *testing.T) {
 	r := &recordingExec{}
-	origResolver := hermesTagResolver
-	defer func() { hermesTagResolver = origResolver }()
-	hermesTagResolver = func(context.Context) (string, error) { return "v9.9.9", nil }
+	origResolver := agent.HermesTagResolver
+	defer func() { agent.HermesTagResolver = origResolver }()
+	agent.HermesTagResolver = func(context.Context) (string, error) { return "v9.9.9", nil }
 
-	if err := Update(context.Background(), r, "hermes"); err != nil {
+	if err := agent.Update(context.Background(), r, "hermes"); err != nil {
 		t.Fatal(err)
 	}
 	want := "uv tool install --reinstall git+https://github.com/NousResearch/hermes-agent@v9.9.9"
@@ -172,14 +174,14 @@ func TestUpdateHermesUsesResolvedTag(t *testing.T) {
 }
 
 func TestUpdateUnknownAgent(t *testing.T) {
-	err := Update(context.Background(), &recordingExec{}, "nosuch")
+	err := agent.Update(context.Background(), &recordingExec{}, "nosuch")
 	if err == nil {
 		t.Fatal("want error")
 	}
 }
 
 func TestInstallArgvForKnownAgent(t *testing.T) {
-	argv, err := InstallArgv(context.Background(), "claude")
+	argv, err := agent.InstallArgv(context.Background(), "claude")
 	if err != nil {
 		t.Fatalf("InstallArgv: %v", err)
 	}
@@ -189,7 +191,7 @@ func TestInstallArgvForKnownAgent(t *testing.T) {
 }
 
 func TestUpdateArgvForKnownAgent(t *testing.T) {
-	argv, err := UpdateArgv(context.Background(), "aider")
+	argv, err := agent.UpdateArgv(context.Background(), "aider")
 	if err != nil {
 		t.Fatalf("UpdateArgv: %v", err)
 	}
@@ -199,11 +201,11 @@ func TestUpdateArgvForKnownAgent(t *testing.T) {
 }
 
 func TestUpdateArgvHermesPropagatesResolverError(t *testing.T) {
-	origResolver := hermesTagResolver
-	defer func() { hermesTagResolver = origResolver }()
-	hermesTagResolver = func(context.Context) (string, error) { return "", errors.New("offline") }
+	origResolver := agent.HermesTagResolver
+	defer func() { agent.HermesTagResolver = origResolver }()
+	agent.HermesTagResolver = func(context.Context) (string, error) { return "", errors.New("offline") }
 
-	_, err := UpdateArgv(context.Background(), "hermes")
+	_, err := agent.UpdateArgv(context.Background(), "hermes")
 	if err == nil {
 		t.Fatal("want error from resolver")
 	}
@@ -213,7 +215,7 @@ func TestUpdateArgvHermesPropagatesResolverError(t *testing.T) {
 }
 
 func TestInstallArgvUnknownAgent(t *testing.T) {
-	_, err := InstallArgv(context.Background(), "nosuch")
+	_, err := agent.InstallArgv(context.Background(), "nosuch")
 	if err == nil {
 		t.Fatal("want error for unknown agent")
 	}

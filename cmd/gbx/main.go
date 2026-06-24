@@ -9,7 +9,8 @@ import (
 	"github.com/willabides/kongplete"
 
 	"github.com/okulik/glovebox"
-	"github.com/okulik/glovebox/internal/projectid"
+	"github.com/okulik/glovebox/internal/config"
+	"github.com/okulik/glovebox/internal/project"
 )
 
 // resolveLibexec defaults GBX_LIBEXEC to the parent of the binary's directory
@@ -102,7 +103,7 @@ func main() {
 	// for `<cmd> -p <pid>` ordering; only one path fires per invocation.
 	args := os.Args[1:]
 	if len(args) >= 2 && (args[0] == "-p" || args[0] == "--pid") {
-		full, err := projectid.Resolve(stateDirFromEnv(), args[1])
+		full, err := project.Resolve(config.GbxFromEnv().StateDir, args[1])
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "gbx:", err)
 			os.Exit(1)
@@ -144,7 +145,7 @@ func runKong(args []string) {
 		parser.FatalIfErrorf(err)
 	}
 	if cli.PFlag != "" {
-		full, perr := projectid.Resolve(stateDirFromEnv(), cli.PFlag)
+		full, perr := project.Resolve(config.GbxFromEnv().StateDir, cli.PFlag)
 		if perr != nil {
 			fmt.Fprintln(os.Stderr, "gbx:", perr)
 			os.Exit(1)

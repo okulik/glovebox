@@ -1,4 +1,4 @@
-package agent
+package agent_test
 
 import (
 	"context"
@@ -6,13 +6,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
-func baseSpec(t *testing.T, proj string) EnsureSpec {
+func baseSpec(t *testing.T, proj string) agent.EnsureSpec {
 	t.Helper()
-	return EnsureSpec{
-		Create: CreateSpec{
+	return agent.EnsureSpec{
+		Create: agent.CreateSpec{
 			PID:            "aaaa1111bbbb",
 			Workspace:      filepath.Join(proj, "ws"),
 			Image:          "glovebox-agent:local",
@@ -33,7 +34,7 @@ func TestEnsureCreatesAndStartsWhenContainerAbsent(t *testing.T) {
 	if err := os.MkdirAll(spec.Create.Workspace, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := Ensure(context.Background(), spec); err != nil {
+	if err := agent.Ensure(context.Background(), spec); err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
 	cname := "glovebox-agent-aaaa1111bbbb"
@@ -69,7 +70,7 @@ func TestEnsureSkipsCreateWhenContainerExists(t *testing.T) {
 	if err := os.MkdirAll(spec.Create.Workspace, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := Ensure(context.Background(), spec); err != nil {
+	if err := agent.Ensure(context.Background(), spec); err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
 	c := fake.Containers[cname]
@@ -92,7 +93,7 @@ func TestEnsureAttachesStackNetworkIfExists(t *testing.T) {
 	if err := os.MkdirAll(spec.Create.Workspace, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := Ensure(context.Background(), spec); err != nil {
+	if err := agent.Ensure(context.Background(), spec); err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
 	gotConnect := false
@@ -116,7 +117,7 @@ func TestEnsureDoesNotAttachWhenStackNetworkAbsent(t *testing.T) {
 	if err := os.MkdirAll(spec.Create.Workspace, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := Ensure(context.Background(), spec); err != nil {
+	if err := agent.Ensure(context.Background(), spec); err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
 	if len(fake.NetworkConnects) != 0 {
@@ -145,7 +146,7 @@ func TestEnsureSeedsClaudeDefaultsOnFirstCreate(t *testing.T) {
 	if err := os.MkdirAll(spec.Create.Workspace, 0o755); err != nil {
 		t.Fatalf("mkdir ws: %v", err)
 	}
-	if err := Ensure(context.Background(), spec); err != nil {
+	if err := agent.Ensure(context.Background(), spec); err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
 	claudeDir := filepath.Join(spec.Create.StateProjDir, "claude")
@@ -193,7 +194,7 @@ func TestEnsurePreservesUserEditsToClaudeDefaults(t *testing.T) {
 	if err := os.MkdirAll(spec.Create.Workspace, 0o755); err != nil {
 		t.Fatalf("mkdir ws: %v", err)
 	}
-	if err := Ensure(context.Background(), spec); err != nil {
+	if err := agent.Ensure(context.Background(), spec); err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
 	got, _ := os.ReadFile(filepath.Join(claudeDir, "settings.json"))
@@ -205,7 +206,7 @@ func TestEnsurePreservesUserEditsToClaudeDefaults(t *testing.T) {
 func TestRemoveDeletesContainer(t *testing.T) {
 	fake := dockerx.NewFake()
 	fake.Containers["glovebox-agent-aaaa1111bbbb"] = dockerx.FakeContainer{ID: "x", State: "running"}
-	if err := Remove(context.Background(), fake, "aaaa1111bbbb"); err != nil {
+	if err := agent.Remove(context.Background(), fake, "aaaa1111bbbb"); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
 	if _, ok := fake.Containers["glovebox-agent-aaaa1111bbbb"]; ok {
@@ -215,7 +216,7 @@ func TestRemoveDeletesContainer(t *testing.T) {
 
 func TestRemoveTolerantOfMissingContainer(t *testing.T) {
 	fake := dockerx.NewFake()
-	if err := Remove(context.Background(), fake, "no-such-pid"); err != nil {
+	if err := agent.Remove(context.Background(), fake, "no-such-pid"); err != nil {
 		t.Errorf("Remove on missing container should not error: %v", err)
 	}
 }

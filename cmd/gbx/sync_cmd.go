@@ -9,6 +9,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/okulik/glovebox/internal/agent"
+	"github.com/okulik/glovebox/internal/config"
 )
 
 // SyncCmd reconciles each target project's glovebox-managed state files with
@@ -22,7 +23,7 @@ func (c *SyncCmd) Run(kctx *kong.Context) error {
 	if c.All && os.Getenv("GBX_OVERRIDE_PID") != "" {
 		return errors.New("gbx sync: --all conflicts with -p <pid>")
 	}
-	stateDir := stateDirFromEnv()
+	stateDir := config.GbxFromEnv().StateDir
 
 	var pids []string
 	if c.All {

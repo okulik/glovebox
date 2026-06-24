@@ -1,10 +1,12 @@
-package agent
+package agent_test
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/agent"
 )
 
 // instructionsTestEnv returns the (stateProjDir, dockerDir) pair the helpers
@@ -33,20 +35,20 @@ func instructionsTestEnv(t *testing.T, source string) (string, string) {
 
 func TestInjectAgentInstructionsCreatesAllThreeFiles(t *testing.T) {
 	stateProj, dockerDir := instructionsTestEnv(t, "# Guidance\n\nDo X.\n")
-	if err := injectAgentInstructions(stateProj, dockerDir); err != nil {
+	if err := agent.InjectAgentInstructions(stateProj, dockerDir); err != nil {
 		t.Fatalf("inject: %v", err)
 	}
-	for _, rel := range agentInstructionTargets {
+	for _, rel := range agent.AgentInstructionTargets {
 		full := filepath.Join(stateProj, rel)
 		data, err := os.ReadFile(full)
 		if err != nil {
 			t.Fatalf("expected %s: %v", full, err)
 		}
 		s := string(data)
-		if !strings.Contains(s, instructionsMarkerBegin) {
+		if !strings.Contains(s, agent.InstructionsMarkerBegin) {
 			t.Errorf("%s missing begin marker", rel)
 		}
-		if !strings.Contains(s, instructionsMarkerEnd) {
+		if !strings.Contains(s, agent.InstructionsMarkerEnd) {
 			t.Errorf("%s missing end marker", rel)
 		}
 		if !strings.Contains(s, "Do X.") {
@@ -57,7 +59,7 @@ func TestInjectAgentInstructionsCreatesAllThreeFiles(t *testing.T) {
 
 func TestInjectAgentInstructionsIsIdempotent(t *testing.T) {
 	stateProj, dockerDir := instructionsTestEnv(t, "# Guidance\nrules\n")
-	if err := injectAgentInstructions(stateProj, dockerDir); err != nil {
+	if err := agent.InjectAgentInstructions(stateProj, dockerDir); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(stateProj, "claude/CLAUDE.md")
@@ -68,7 +70,7 @@ func TestInjectAgentInstructionsIsIdempotent(t *testing.T) {
 	infoFirst, _ := os.Stat(path)
 
 	// Re-run.
-	if err := injectAgentInstructions(stateProj, dockerDir); err != nil {
+	if err := agent.InjectAgentInstructions(stateProj, dockerDir); err != nil {
 		t.Fatal(err)
 	}
 	second, _ := os.ReadFile(path)
@@ -93,7 +95,7 @@ func TestInjectAgentInstructionsAppendsToExistingUnmarkedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := injectAgentInstructions(stateProj, dockerDir); err != nil {
+	if err := agent.InjectAgentInstructions(stateProj, dockerDir); err != nil {
 		t.Fatal(err)
 	}
 
@@ -102,7 +104,7 @@ func TestInjectAgentInstructionsAppendsToExistingUnmarkedFile(t *testing.T) {
 	if !strings.HasPrefix(s, existing) {
 		t.Errorf("existing prefix not preserved:\n%s", s)
 	}
-	if !strings.Contains(s, instructionsMarkerBegin) || !strings.Contains(s, "rules text") {
+	if !strings.Contains(s, agent.InstructionsMarkerBegin) || !strings.Contains(s, "rules text") {
 		t.Errorf("block not appended:\n%s", s)
 	}
 }
@@ -110,7 +112,7 @@ func TestInjectAgentInstructionsAppendsToExistingUnmarkedFile(t *testing.T) {
 func TestInjectAgentInstructionsReplacesMarkedBlock(t *testing.T) {
 	stateProj, dockerDir := instructionsTestEnv(t, "NEW CONTENT\n")
 	existing := "# My notes\n\n" +
-		instructionsMarkerBegin + "\nOLD CONTENT\n" + instructionsMarkerEnd + "\n\n" +
+		agent.InstructionsMarkerBegin + "\nOLD CONTENT\n" + agent.InstructionsMarkerEnd + "\n\n" +
 		"More of my notes.\n"
 	path := filepath.Join(stateProj, "claude/CLAUDE.md")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -120,7 +122,7 @@ func TestInjectAgentInstructionsReplacesMarkedBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := injectAgentInstructions(stateProj, dockerDir); err != nil {
+	if err := agent.InjectAgentInstructions(stateProj, dockerDir); err != nil {
 		t.Fatal(err)
 	}
 
@@ -139,17 +141,17 @@ func TestInjectAgentInstructionsReplacesMarkedBlock(t *testing.T) {
 		t.Errorf("user text below markers lost:\n%s", s)
 	}
 	// Exactly one marker pair (no accumulation across re-runs).
-	if strings.Count(s, instructionsMarkerBegin) != 1 || strings.Count(s, instructionsMarkerEnd) != 1 {
+	if strings.Count(s, agent.InstructionsMarkerBegin) != 1 || strings.Count(s, agent.InstructionsMarkerEnd) != 1 {
 		t.Errorf("marker pair should appear exactly once:\n%s", s)
 	}
 }
 
 func TestInjectAgentInstructionsSourceMissingIsNoop(t *testing.T) {
 	stateProj, dockerDir := instructionsTestEnv(t, "")
-	if err := injectAgentInstructions(stateProj, dockerDir); err != nil {
+	if err := agent.InjectAgentInstructions(stateProj, dockerDir); err != nil {
 		t.Errorf("source missing should not error: %v", err)
 	}
-	for _, rel := range agentInstructionTargets {
+	for _, rel := range agent.AgentInstructionTargets {
 		if _, err := os.Stat(filepath.Join(stateProj, rel)); !os.IsNotExist(err) {
 			t.Errorf("%s should not be created when source is missing", rel)
 		}
@@ -158,7 +160,7 @@ func TestInjectAgentInstructionsSourceMissingIsNoop(t *testing.T) {
 
 func TestInjectAgentInstructionsRefreshesContentAcrossSourceChanges(t *testing.T) {
 	stateProj, dockerDir := instructionsTestEnv(t, "v1 content\n")
-	if err := injectAgentInstructions(stateProj, dockerDir); err != nil {
+	if err := agent.InjectAgentInstructions(stateProj, dockerDir); err != nil {
 		t.Fatal(err)
 	}
 	// Change the source and re-inject; existing files should be refreshed.
@@ -166,10 +168,10 @@ func TestInjectAgentInstructionsRefreshesContentAcrossSourceChanges(t *testing.T
 	if err := os.WriteFile(src, []byte("v2 content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := injectAgentInstructions(stateProj, dockerDir); err != nil {
+	if err := agent.InjectAgentInstructions(stateProj, dockerDir); err != nil {
 		t.Fatal(err)
 	}
-	for _, rel := range agentInstructionTargets {
+	for _, rel := range agent.AgentInstructionTargets {
 		data, _ := os.ReadFile(filepath.Join(stateProj, rel))
 		s := string(data)
 		if strings.Contains(s, "v1 content") {

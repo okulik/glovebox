@@ -9,7 +9,6 @@ import (
 
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/hostconfig"
-	"github.com/okulik/glovebox/internal/projectid"
 	"github.com/okulik/glovebox/internal/state"
 )
 
@@ -51,14 +50,14 @@ func New(ctx context.Context, spec NewSpec) (NewResult, error) {
 		return NewResult{}, fmt.Errorf("not a directory: %s", abs)
 	}
 	// Match bash `readlink -f`: resolve symlinks so the recorded workspace
-	// path matches what projectid.Hash sees (e.g. /var → /private/var on macOS).
+	// path matches what Hash sees (e.g. /var → /private/var on macOS).
 	if resolved, slErr := filepath.EvalSymlinks(abs); slErr == nil {
 		abs = resolved
 	}
 	if bootErr := hostconfig.Bootstrap(spec.LibExec, spec.ConfigDir); bootErr != nil {
 		return NewResult{}, fmt.Errorf("bootstrap: %w", bootErr)
 	}
-	pid, err := projectid.Hash(abs)
+	pid, err := Hash(abs)
 	if err != nil {
 		return NewResult{}, fmt.Errorf("compute pid: %w", err)
 	}
@@ -105,7 +104,7 @@ func New(ctx context.Context, spec NewSpec) (NewResult, error) {
 // Use ports cmd_project_use: resolve prefix, write active-project.
 func Use(configDir, prefix string) error {
 	stateDir := filepath.Join(configDir, "state")
-	pid, err := projectid.Resolve(stateDir, prefix)
+	pid, err := Resolve(stateDir, prefix)
 	if err != nil {
 		return err
 	}
@@ -149,7 +148,7 @@ type RemoveSpec struct {
 // state removal, clear active-project if it pointed at the removed pid.
 func Remove(ctx context.Context, spec RemoveSpec) error {
 	stateDir := filepath.Join(spec.ConfigDir, "state")
-	pid, err := projectid.Resolve(stateDir, spec.Prefix)
+	pid, err := Resolve(stateDir, spec.Prefix)
 	if err != nil {
 		return err
 	}

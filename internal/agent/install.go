@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var hermesTagResolver = defaultHermesTag
+var HermesTagResolver = defaultHermesTag
 
 func defaultHermesTag(ctx context.Context) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
@@ -78,7 +78,7 @@ func staticCmd(parts ...string) func(context.Context) ([]string, error) {
 
 func hermesCmd(extra ...string) func(context.Context) ([]string, error) {
 	return func(ctx context.Context) ([]string, error) {
-		tag, err := hermesTagResolver(ctx)
+		tag, err := HermesTagResolver(ctx)
 		if err != nil {
 			return nil, err
 		}

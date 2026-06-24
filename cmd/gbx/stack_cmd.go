@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
+	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/apiclient"
 	"github.com/okulik/glovebox/internal/config"
-	"github.com/okulik/glovebox/internal/pathx"
 	"github.com/okulik/glovebox/internal/state"
 )
 
@@ -42,7 +42,7 @@ func stackPID() (string, error) {
 	if p := os.Getenv("GBX_PROJECT_ID"); p != "" {
 		return p, nil
 	}
-	pid, err := state.ActivePID(configDirFromEnv())
+	pid, err := state.ActivePID(config.GbxFromEnv().ConfigDir)
 	if err != nil {
 		return "", err
 	}
@@ -276,14 +276,14 @@ func (c *StackImageAllowCmd) Run(kctx *kong.Context) error {
 	}
 	// Containment: confine the allowlist file to <libexec>/docker/, since
 	// libexec is taint-derived (read from GBX_LIBEXEC env).
-	path, err := pathx.UnderBase(
+	path, err := agent.UnderBase(
 		filepath.Join(libexec, "docker"),
 		filepath.Join(libexec, "docker", "image-allowlist.txt"),
 	)
 	if err != nil {
 		return err
 	}
-	//nolint:gosec // G703: path is validated by pathx.UnderBase above
+	//nolint:gosec // G703: path is validated by agent.UnderBase above
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("allowlist not found at %s: %w", path, err)
@@ -292,7 +292,7 @@ func (c *StackImageAllowCmd) Run(kctx *kong.Context) error {
 		fmt.Fprintf(kctx.Stdout, "already allowed: %s\n", c.Registry)
 		return nil
 	}
-	//nolint:gosec // G703: path is validated by pathx.UnderBase above
+	//nolint:gosec // G703: path is validated by agent.UnderBase above
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err

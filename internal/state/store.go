@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/okulik/glovebox/internal/fsx"
+	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/manifest"
 )
 
@@ -150,5 +150,5 @@ func (s *Store) flush() error {
 	if err != nil {
 		return err
 	}
-	return fsx.WriteAtomic(s.path, b, 0o600)
+	return agent.WriteAtomic(s.path, b, 0o600)
 }

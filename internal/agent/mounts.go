@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/okulik/glovebox/internal/fsx"
 )
 
 // Mount is one host:container bind mount applied to the agent container in
@@ -155,5 +153,5 @@ func WriteMounts(stateProjDir string, mounts []Mount) error {
 		buf.WriteString(m.String())
 		buf.WriteString("\n")
 	}
-	return fsx.WriteAtomic(path, []byte(buf.String()), 0o600)
+	return WriteAtomic(path, []byte(buf.String()), 0o600)
 }

@@ -57,14 +57,14 @@ func (c *ProjectStartCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	wsfile := filepath.Join(stateDirFromEnv(), projectsPath, pid, workspacePathFile)
+	wsfile := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid, workspacePathFile)
 	data, err := os.ReadFile(wsfile)
 	if err != nil {
 		return fmt.Errorf("Project %s has no recorded workspace.", pid)
 	}
 	ws := strings.TrimRight(string(data), "\r\n")
 	libexec := os.Getenv("GBX_LIBEXEC")
-	if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, stateDirFromEnv()); err != nil {
+	if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, config.GbxFromEnv().StateDir); err != nil {
 		return err
 	}
 	fmt.Fprintf(kctx.Stdout, "Started glovebox-agent-%s.\n", pid)
@@ -153,7 +153,7 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 
 	var pids []string
 	if c.All {
-		projectsDir := filepath.Join(stateDirFromEnv(), projectsPath)
+		projectsDir := filepath.Join(config.GbxFromEnv().StateDir, projectsPath)
 		entries, err := os.ReadDir(projectsDir)
 		if err != nil {
 			return fmt.Errorf("can't read '%s' folder: %w", projectsDir, err)
@@ -174,7 +174,7 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 	ctx := context.Background()
 	base := config.GbxFromEnv().AgentImage
 	for _, pid := range pids {
-		stateProjDir := filepath.Join(stateDirFromEnv(), projectsPath, pid)
+		stateProjDir := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid)
 		wsfile := filepath.Join(stateProjDir, workspacePathFile)
 		data, err := os.ReadFile(wsfile)
 		if err != nil {
@@ -212,7 +212,7 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 		if err := hostDocker.ForceRemoveContainer(ctx, containerName); err != nil {
 			return fmt.Errorf("can't force remove container '%s': %w", containerName, err)
 		}
-		if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, stateDirFromEnv()); err != nil {
+		if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, config.GbxFromEnv().StateDir); err != nil {
 			return err
 		}
 		fmt.Fprintf(kctx.Stdout, "Rebuilt and recreated glovebox-agent-%s.\n", pid)
@@ -234,7 +234,7 @@ func (c *ProjectStateSizeCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	projDir := filepath.Join(stateDirFromEnv(), projectsPath, pid)
+	projDir := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid)
 	fmt.Fprintf(kctx.Stdout, "PROJECT %s\n", pid)
 	fmt.Fprintf(kctx.Stdout, "%-12s %s\n", "DIR", "SIZE")
 	for _, d := range []string{"claude", "codex", "opencode", "pi", "gemini", "aider", "hermes"} {
@@ -247,7 +247,7 @@ func (c *ProjectStateSizeCmd) Run(kctx *kong.Context) error {
 	fmt.Fprintln(kctx.Stdout, "\nSHARED")
 	fmt.Fprintf(kctx.Stdout, "%-12s %s\n", "DIR", "SIZE")
 	for _, d := range []string{"npm", "uv-tools", "bin", "cache", "shell-history"} {
-		path := filepath.Join(stateDirFromEnv(), "shared", d)
+		path := filepath.Join(config.GbxFromEnv().StateDir, "shared", d)
 		if _, err := os.Stat(path); err == nil {
 			size := duHuman(path)
 			fmt.Fprintf(kctx.Stdout, "%-12s %s\n", d, size)

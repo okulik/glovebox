@@ -1,50 +1,15 @@
-package agent
+package agent_test
 
 import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/agent"
 )
-
-func TestDeepMergeJSON_UnionsAllowList(t *testing.T) {
-	dst := map[string]any{"permissions": map[string]any{"allow": []any{"Read(//data/**)"}}}
-	src := map[string]any{"permissions": map[string]any{"allow": []any{"Bash(gbx-stack *)", "Read(//data/**)"}}}
-	got := deepMergeJSON(dst, src).(map[string]any)
-	allow := got["permissions"].(map[string]any)["allow"].([]any)
-	// user entry kept first, new entry appended, exact dup not duplicated.
-	if len(allow) != 2 {
-		t.Fatalf("allow = %v, want 2 entries", allow)
-	}
-	if allow[0] != "Read(//data/**)" || allow[1] != "Bash(gbx-stack *)" {
-		t.Errorf("allow order/content = %v", allow)
-	}
-}
-
-func TestDeepMergeJSON_ScalarUserWinsFillsMissing(t *testing.T) {
-	dst := map[string]any{"model": "opus"}
-	src := map[string]any{"model": "sonnet", "theme": "dark"}
-	got := deepMergeJSON(dst, src).(map[string]any)
-	if got["model"] != "opus" {
-		t.Errorf("model = %v, user value must win", got["model"])
-	}
-	if got["theme"] != "dark" {
-		t.Errorf("theme = %v, missing key must be filled", got["theme"])
-	}
-}
-
-func TestDeepMergeJSON_Idempotent(t *testing.T) {
-	dst := map[string]any{"a": float64(1), "list": []any{"x"}}
-	src := map[string]any{"a": float64(2), "list": []any{"x", "y"}, "b": "new"}
-	once := deepMergeJSON(dst, src)
-	twice := deepMergeJSON(once, src)
-	if !reflect.DeepEqual(once, twice) {
-		t.Errorf("not idempotent:\n once=%v\n twice=%v", once, twice)
-	}
-}
 
 func writeReconcileDefaults(t *testing.T, base string) string {
 	t.Helper()
@@ -89,7 +54,7 @@ func TestReconcileState_SeedsAndMerges(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	changed, err := ReconcileState(stateProjDir, dockerDir)
+	changed, err := agent.ReconcileState(stateProjDir, dockerDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +90,7 @@ func TestReconcileState_SeedsAndMerges(t *testing.T) {
 	}
 
 	// Idempotent: a second run changes nothing.
-	changed2, err := ReconcileState(stateProjDir, dockerDir)
+	changed2, err := agent.ReconcileState(stateProjDir, dockerDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +110,7 @@ func TestReconcileState_InvalidExistingSettings(t *testing.T) {
 		[]byte("{not json"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReconcileState(stateProjDir, dockerDir); err == nil {
+	if _, err := agent.ReconcileState(stateProjDir, dockerDir); err == nil {
 		t.Fatal("expected error on invalid existing settings.json")
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/okulik/glovebox/internal/projectid"
+	"github.com/okulik/glovebox/internal/project"
 )
 
 // setupMountTestProject creates a temp config dir with one registered project
@@ -17,7 +17,7 @@ func setupMountTestProject(t *testing.T) string {
 	t.Helper()
 	cfg := t.TempDir()
 	ws := t.TempDir()
-	pid, err := projectid.Hash(ws)
+	pid, err := project.Hash(ws)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,14 +7,20 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
+	"github.com/okulik/glovebox/internal/hostconfig"
 	"github.com/okulik/glovebox/internal/plugin"
 	"github.com/okulik/glovebox/internal/project"
 	"github.com/okulik/glovebox/internal/state"
+)
+
+const (
+	ProjectNewTimeout = time.Second * 30
 )
 
 // removeAgentFn is the indirection used by ProjectRmCmd so tests can swap the
@@ -29,7 +35,7 @@ type ProjectUseCmd struct {
 }
 
 func (c *ProjectUseCmd) Run(kctx *kong.Context) error {
-	cfg := configDirFromEnv()
+	cfg := config.GbxFromEnv().ConfigDir
 	if err := project.Use(cfg, c.IDOrPrefix); err != nil {
 		return err
 	}
@@ -82,7 +88,7 @@ type ProjectRmCmd struct {
 }
 
 func (c *ProjectRmCmd) Run(kctx *kong.Context) error {
-	cfg := configDirFromEnv()
+	cfg := config.GbxFromEnv().ConfigDir
 	stateDir := filepath.Join(cfg, "state")
 	if c.All && c.IDOrPrefix != "" {
 		return errors.New("gbx rm: --all conflicts with an explicit pid argument")
@@ -149,7 +155,7 @@ var ensureAgentFn project.EnsureAgentFn = func(ctx context.Context, dc dockerx.C
 		return fmt.Errorf("build agent image: %w", err)
 	}
 	stateProjDir := stateDir + "/projects/" + pid
-	extra, err := agent.ReadMounts(stateProjDir)
+	mounts, err := agent.ReadMounts(stateProjDir)
 	if err != nil {
 		return fmt.Errorf("read project mounts: %w", err)
 	}
@@ -169,21 +175,15 @@ var ensureAgentFn project.EnsureAgentFn = func(ctx context.Context, dc dockerx.C
 			StateSharedDir: stateDir + "/shared",
 			DockerDir:      libexec + "/docker",
 			HostEnv:        envMap(),
-			ExtraMounts:    extra,
+			Mounts:         mounts,
 			Labels:         labels,
 		},
 	})
 }
 
-// envMap snapshots the host environment as a map[string]string for use by
-// BuildCreateConfig.
 func envMap() map[string]string {
 	out := map[string]string{}
-	for _, key := range []string{
-		"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GOOGLE_API_KEY",
-		"DEEPSEEK_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY", "AWS_REGION",
-		"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "GOOGLE_APPLICATION_CREDENTIALS",
-	} {
+	for _, key := range agent.HostEnvVars {
 		out[key] = os.Getenv(key)
 	}
 	return out
@@ -198,6 +198,10 @@ func (c *ProjectNewCmd) Run(kctx *kong.Context) error {
 	if libexec == "" {
 		return errors.New("GBX_LIBEXEC not set (should be set by bin/gbx)")
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), ProjectNewTimeout)
+	defer cancel()
+
 	// Bring the singleton stack up so the agent network exists before
 	// docker create runs. Tests stub this out by setting GBX_SKIP_STACK_UP=1
 	// - they don't have docker available and inject a fake EnsureAgent
@@ -209,29 +213,31 @@ func (c *ProjectNewCmd) Run(kctx *kong.Context) error {
 		// Seed config dir before compose Up: ensureStackUp reads
 		// ${GBX_CONFIG_DIR}/.env. If the user just deleted ~/.config/glovebox,
 		// we recreate it here from .env.example.
-		if err := bootstrapConfig(); err != nil {
+		if err := hostconfig.Bootstrap(libexec, config.GbxFromEnv().ConfigDir); err != nil {
 			return err
 		}
-		if err := ensureStackUp(context.Background()); err != nil {
+		if err := ensureStackUp(ctx); err != nil {
 			return err
 		}
 	}
-	res, err := project.New(context.Background(), project.NewSpec{
+
+	res, err := project.New(ctx, project.NewSpec{
 		Docker:      projectClient(),
 		Workspace:   c.HostPath,
-		ConfigDir:   configDirFromEnv(),
+		ConfigDir:   config.GbxFromEnv().ConfigDir,
 		LibExec:     libexec,
 		EnsureAgent: ensureAgentFn,
 	})
 	if err != nil {
 		return err
 	}
+
 	if res.AlreadyRegistered {
 		fmt.Fprintf(kctx.Stdout, "Already registered as %s.\n", res.PID)
 	} else if res.SetAsDefault {
 		fmt.Fprintf(kctx.Stdout, "Registered project %s at %s. Set as default.\n", res.PID, res.WorkspaceAbs)
 	} else {
-		cur, err := state.ActivePID(configDirFromEnv())
+		cur, err := state.ActivePID(config.GbxFromEnv().ConfigDir)
 		if err != nil {
 			return fmt.Errorf("can't read active pid: %w", err)
 		}
@@ -241,5 +247,6 @@ func (c *ProjectNewCmd) Run(kctx *kong.Context) error {
 			fmt.Fprintf(kctx.Stdout, "Registered project %s at %s. (default remains %s)\n", res.PID, res.WorkspaceAbs, cur)
 		}
 	}
+
 	return nil
 }

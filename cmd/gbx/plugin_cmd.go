@@ -11,6 +11,7 @@ import (
 
 	"github.com/alecthomas/kong"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/plugin"
 )
 
@@ -51,7 +52,7 @@ func pluginProjectDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(stateDirFromEnv(), projectsPath, pid)
+	dir := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create state dir for %s: %w", pid, err)
 	}
@@ -179,7 +180,7 @@ type PluginLsCmd struct {
 func (c *PluginLsCmd) Run(kctx *kong.Context) error {
 	const tsLayout = "2006-01-02 15:04"
 	if c.All {
-		projectsRoot := filepath.Join(stateDirFromEnv(), projectsPath)
+		projectsRoot := filepath.Join(config.GbxFromEnv().StateDir, projectsPath)
 		entries, err := os.ReadDir(projectsRoot)
 		if err != nil {
 			if os.IsNotExist(err) {

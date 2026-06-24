@@ -1,13 +1,15 @@
-package agent
+package agent_test
 
 import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/agent"
 )
 
-func defaultSpec() CreateSpec {
-	return CreateSpec{
+func defaultSpec() agent.CreateSpec {
+	return agent.CreateSpec{
 		PID:            "aaaa1111bbbb",
 		Workspace:      "/work/foo",
 		Image:          "glovebox-agent:local",
@@ -36,12 +38,12 @@ func bindHas(t *testing.T, binds []string, want string) {
 }
 
 func TestBuildCreateConfigBasicShape(t *testing.T) {
-	cfg, hostCfg, netCfg, name := BuildCreateConfig(defaultSpec())
+	cfg, hostCfg, netCfg, name := agent.BuildCreateConfig(defaultSpec())
 	if name != "glovebox-agent-aaaa1111bbbb" {
 		t.Fatalf("name = %q", name)
 	}
-	if cfg.User != HostUser() {
-		t.Fatalf("user = %q, want %q", cfg.User, HostUser())
+	if cfg.User != agent.HostUser() {
+		t.Fatalf("user = %q, want %q", cfg.User, agent.HostUser())
 	}
 	if cfg.WorkingDir != "/workspace" {
 		t.Fatalf("workdir = %q", cfg.WorkingDir)
@@ -61,35 +63,35 @@ func TestBuildCreateConfigBasicShape(t *testing.T) {
 	if !slices.Contains(hostCfg.SecurityOpt, "no-new-privileges:true") {
 		t.Fatalf("SecurityOpt missing no-new-privileges: %v", hostCfg.SecurityOpt)
 	}
-	if _, ok := netCfg.EndpointsConfig[AgentNetwork]; !ok {
-		t.Fatalf("EndpointsConfig missing %s: %v", AgentNetwork, netCfg.EndpointsConfig)
+	if _, ok := netCfg.EndpointsConfig[agent.AgentNetwork]; !ok {
+		t.Fatalf("EndpointsConfig missing %s: %v", agent.AgentNetwork, netCfg.EndpointsConfig)
 	}
 }
 
 func TestBuildCreateConfigWorkspaceMount(t *testing.T) {
 	spec := defaultSpec()
 	spec.Workspace = "/work/custom"
-	_, hostCfg, _, _ := BuildCreateConfig(spec)
+	_, hostCfg, _, _ := agent.BuildCreateConfig(spec)
 	bindHas(t, hostCfg.Binds, "/work/custom:/workspace")
 }
 
 func TestBuildCreateConfigForwardsHostEnv(t *testing.T) {
 	spec := defaultSpec()
 	spec.HostEnv = map[string]string{"ANTHROPIC_API_KEY": "sk-test"}
-	cfg, _, _, _ := BuildCreateConfig(spec)
+	cfg, _, _, _ := agent.BuildCreateConfig(spec)
 	envHas(t, cfg.Env, "ANTHROPIC_API_KEY=sk-test")
 }
 
 func TestBuildCreateConfigEmptyHostEnvStillForwardsKey(t *testing.T) {
 	spec := defaultSpec()
-	cfg, _, _, _ := BuildCreateConfig(spec)
+	cfg, _, _, _ := agent.BuildCreateConfig(spec)
 	envHas(t, cfg.Env, "ANTHROPIC_API_KEY=")
 }
 
 func TestBuildCreateConfigExtraMountsRW(t *testing.T) {
 	spec := defaultSpec()
-	spec.ExtraMounts = []Mount{{Host: "/host/docs", Container: "/mnt/docs", Mode: "rw"}}
-	_, hostCfg, _, _ := BuildCreateConfig(spec)
+	spec.Mounts = []agent.Mount{{Host: "/host/docs", Container: "/mnt/docs", Mode: "rw"}}
+	_, hostCfg, _, _ := agent.BuildCreateConfig(spec)
 	bindHas(t, hostCfg.Binds, "/host/docs:/mnt/docs")
 	for _, b := range hostCfg.Binds {
 		if b == "/host/docs:/mnt/docs:ro" {
@@ -100,15 +102,15 @@ func TestBuildCreateConfigExtraMountsRW(t *testing.T) {
 
 func TestBuildCreateConfigExtraMountsRO(t *testing.T) {
 	spec := defaultSpec()
-	spec.ExtraMounts = []Mount{{Host: "/host/lib", Container: "/mnt/lib", Mode: "ro"}}
-	_, hostCfg, _, _ := BuildCreateConfig(spec)
+	spec.Mounts = []agent.Mount{{Host: "/host/lib", Container: "/mnt/lib", Mode: "ro"}}
+	_, hostCfg, _, _ := agent.BuildCreateConfig(spec)
 	bindHas(t, hostCfg.Binds, "/host/lib:/mnt/lib:ro")
 }
 
 func TestBuildCreateConfigExtraMountsAppearAfterFixedMounts(t *testing.T) {
 	spec := defaultSpec()
-	spec.ExtraMounts = []Mount{{Host: "/h", Container: "/c", Mode: "rw"}}
-	_, hostCfg, _, _ := BuildCreateConfig(spec)
+	spec.Mounts = []agent.Mount{{Host: "/h", Container: "/c", Mode: "rw"}}
+	_, hostCfg, _, _ := agent.BuildCreateConfig(spec)
 	workspaceIdx, extraIdx := -1, -1
 	for i, b := range hostCfg.Binds {
 		if strings.HasPrefix(b, "/work/foo:/workspace") {
@@ -125,7 +127,7 @@ func TestBuildCreateConfigExtraMountsAppearAfterFixedMounts(t *testing.T) {
 }
 
 func TestBuildCreateConfigStateDirVolumes(t *testing.T) {
-	_, hostCfg, _, _ := BuildCreateConfig(defaultSpec())
+	_, hostCfg, _, _ := agent.BuildCreateConfig(defaultSpec())
 	for _, want := range []string{
 		"/state/projects/aaaa1111bbbb/claude:/home/gbx/.claude",
 		"/state/shared/npm:/home/gbx/.npm",

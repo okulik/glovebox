@@ -1,7 +1,7 @@
 // Package projectid owns the rules for deriving a glovebox project id from a
 // workspace path. A pid is the first 12 lowercase hex characters of the SHA-1
 // of the path's resolved absolute form.
-package projectid
+package project
 
 import (
 	// SHA-1 is used here as a stable IDENTIFIER hash, not for any

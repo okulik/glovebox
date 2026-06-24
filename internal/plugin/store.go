@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/okulik/glovebox/internal/fsx"
+	"github.com/okulik/glovebox/internal/agent"
 )
 
 // dockerfileName is the generated layered Dockerfile written into the project
@@ -108,7 +108,7 @@ func Store(stateProjDir, content string, ts time.Time) (string, error) {
 		return "", fmt.Errorf("create plugins dir: %w", err)
 	}
 	id := HashID(content, ts)
-	if err := fsx.WriteAtomic(filepath.Join(dir, id), []byte(content), 0o600); err != nil {
+	if err := agent.WriteAtomic(filepath.Join(dir, id), []byte(content), 0o600); err != nil {
 		return "", err
 	}
 	return id, nil
@@ -120,7 +120,7 @@ func Overwrite(p Plugin, content string) error {
 	if err := Validate(content); err != nil {
 		return err
 	}
-	return fsx.WriteAtomic(p.Path, []byte(content), 0o600)
+	return agent.WriteAtomic(p.Path, []byte(content), 0o600)
 }
 
 // Remove deletes a plugin's fragment file.
@@ -135,7 +135,7 @@ func Remove(p Plugin) error {
 // <stateProjDir>/Dockerfile.plugins and returns its path.
 func WriteDockerfile(stateProjDir, base string, plugins []Plugin) (string, error) {
 	path := filepath.Join(stateProjDir, dockerfileName)
-	if err := fsx.WriteAtomic(path, []byte(GenerateDockerfile(base, plugins)), 0o600); err != nil {
+	if err := agent.WriteAtomic(path, []byte(GenerateDockerfile(base, plugins)), 0o600); err != nil {
 		return "", err
 	}
 	return path, nil

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/project"
 	"github.com/okulik/glovebox/internal/state"
@@ -21,13 +22,13 @@ type ProjectLsCmd struct {
 }
 
 func (c *ProjectLsCmd) Run(kctx *kong.Context) error {
-	cfg := configDirFromEnv()
+	cfg := config.GbxFromEnv().ConfigDir
 	activePID, err := state.ActivePID(cfg)
 	if err != nil {
 		return fmt.Errorf("can't read active pid: %w", err)
 	}
 	dc := projectClient()
-	projects, err := project.List(stateDirFromEnv(), activePID, dc)
+	projects, err := project.List(config.GbxFromEnv().StateDir, activePID, dc)
 	if err != nil {
 		return err
 	}
