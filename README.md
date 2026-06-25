@@ -1,6 +1,6 @@
 # glovebox
 
-<img width="500" alt="glovebox" src="https://github.com/user-attachments/assets/bd9ca342-32a6-4a62-b368-f4e3193c01c3" />
+<img width="500" alt="glovebox" src="docs/glovebox.jpg" />
 
 A Docker-based isolation harness for running AI coding agents.
 Supports seven agents - **Claude Code, Codex, OpenCode, Pi, Gemini CLI,
