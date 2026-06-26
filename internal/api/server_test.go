@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/config"
 )
 
 // captureLog redirects the standard logger to a buffer for the duration of the
@@ -49,7 +51,7 @@ func TestLogRequestsSkipsHealth(t *testing.T) {
 		served = true
 		w.WriteHeader(http.StatusOK)
 	}))
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, config.HealthPath, nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 

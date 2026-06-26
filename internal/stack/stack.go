@@ -279,7 +279,7 @@ func (s *Stack) ensureController(ctx context.Context) error {
 func socketProxyConfig() (*container.Config, *container.HostConfig, *network.NetworkingConfig) {
 	cfg := &container.Config{
 		Image:    config.ImageSocketProxy,
-		Hostname: "socket-proxy",
+		Hostname: config.HostnameSocketProxy,
 		Env: []string{
 			"CONTAINERS=1", "NETWORKS=1", "VOLUMES=1", "IMAGES=1", "VERSION=1",
 			"INFO=0", "EXEC=0", "AUTH=0", "SECRETS=0", "SERVICES=0", "SWARM=0", "SYSTEM=0",
@@ -299,7 +299,7 @@ func socketProxyConfig() (*container.Config, *container.HostConfig, *network.Net
 	}
 	netCfg := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			config.NetworkControl: {Aliases: []string{"socket-proxy"}},
+			config.NetworkControl: {Aliases: []string{config.HostnameSocketProxy}},
 		},
 	}
 	return cfg, hostCfg, netCfg
@@ -308,7 +308,7 @@ func socketProxyConfig() (*container.Config, *container.HostConfig, *network.Net
 func (s *Stack) egressProxyConfig() (*container.Config, *container.HostConfig, *network.NetworkingConfig) {
 	cfg := &container.Config{
 		Image:    config.ImageEgressProxy,
-		Hostname: "proxy",
+		Hostname: config.HostnameProxy,
 		// `squid -k check` confirms the running squid process via its PID file
 		// without opening a connection to the proxy port. The previous
 		// `echo >/dev/tcp/127.0.0.1/3128` probe opened and closed a TCP
@@ -326,14 +326,14 @@ func (s *Stack) egressProxyConfig() (*container.Config, *container.HostConfig, *
 	}
 	hostCfg := &container.HostConfig{
 		Binds: []string{
-			filepath.Join(s.Libexec, "docker", "proxy", "squid.conf") + ":/etc/squid/squid.conf:ro",
+			filepath.Join(s.Libexec, config.DockerDirName, "proxy", "squid.conf") + ":/etc/squid/squid.conf:ro",
 			filepath.Join(s.ConfigDir, "allowlist.txt") + ":/etc/squid/allowlist.txt:ro",
 		},
 		RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyUnlessStopped},
 	}
 	netCfg := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			config.NetworkInternal: {Aliases: []string{"proxy"}},
+			config.NetworkInternal: {Aliases: []string{config.HostnameProxy}},
 		},
 	}
 	return cfg, hostCfg, netCfg
@@ -361,7 +361,7 @@ func (s *Stack) controllerConfig() (*container.Config, *container.HostConfig, *n
 
 	cfg := &container.Config{
 		Image:    config.ImageController,
-		Hostname: "stack-controller",
+		Hostname: config.HostnameStackController,
 		Env: []string{
 			"CONTROLLER_DOCKER_HOST=" + ccfg.DockerHost,
 			"CONTROLLER_STATE_DIR=" + ccfg.StateDir,
@@ -386,7 +386,7 @@ func (s *Stack) controllerConfig() (*container.Config, *container.HostConfig, *n
 	hostCfg := &container.HostConfig{
 		Binds: []string{
 			filepath.Join(s.StateDir, "controller") + ":/state",
-			filepath.Join(s.Libexec, "docker", "image-allowlist.txt") + ":/config/image-allowlist.txt:ro",
+			filepath.Join(s.Libexec, config.DockerDirName, "image-allowlist.txt") + ":/config/image-allowlist.txt:ro",
 		},
 		PortBindings: network.PortMap{
 			containerPort: []network.PortBinding{{HostIP: loopback, HostPort: gcfg.ControllerHostPort}},
@@ -395,7 +395,7 @@ func (s *Stack) controllerConfig() (*container.Config, *container.HostConfig, *n
 	}
 	netCfg := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			config.NetworkInternal: {Aliases: []string{"stack-controller"}},
+			config.NetworkInternal: {Aliases: []string{config.HostnameStackController}},
 		},
 	}
 	return cfg, hostCfg, netCfg, nil

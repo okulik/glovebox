@@ -11,52 +11,69 @@ const (
 	ProjectsPath      = "projects"
 	StatePath         = "state"
 	WorkspacePath     = "workspace-path"
+	SharedPath        = "shared"
+
+	// DockerDirName is the recipes subdir under <libexec> holding the
+	// Dockerfile, squid.conf, image-allowlist.txt, and friends.
+	DockerDirName = "docker"
 
 	NetworkInternal = "glovebox-internal"
 	NetworkControl  = "glovebox-control"
 	NetworkEgress   = "glovebox-egress"
 
-	ContainerAgentPrefix     = "glovebox-agent-"
-	ContainerStackPrefix     = "glovebox-stack-"
-	ContainerEgressProxy     = "glovebox-egress-proxy"
-	ContainerSocketProxy     = "glovebox-socket-proxy"
-	ContainerStackController = "glovebox-stack-controller"
+	// ContainerPrefix is the common prefix on every container glovebox owns;
+	// the role-specific prefixes and singleton names derive from it.
+	ContainerPrefix          = "glovebox-"
+	ContainerAgentPrefix     = ContainerPrefix + "agent-"
+	ContainerStackPrefix     = ContainerPrefix + "stack-"
+	ContainerEgressProxy     = ContainerPrefix + "egress-proxy"
+	ContainerSocketProxy     = ContainerPrefix + "socket-proxy"
+	ContainerStackController = ContainerPrefix + "stack-controller"
+
+	// Hostnames are the in-network DNS names (and aliases) the singleton
+	// stack containers answer to.
+	HostnameSocketProxy     = "socket-proxy"
+	HostnameProxy           = "proxy"
+	HostnameStackController = "stack-controller"
+
+	// ProxyURL is the egress proxy endpoint injected as HTTP(S)_PROXY into
+	// every agent container.
+	ProxyPort = "3128"
+	ProxyURL  = "http://" + HostnameProxy + ":" + ProxyPort
 
 	ImageEgressProxy = "ubuntu/squid:latest"
 	ImageSocketProxy = "tecnativa/docker-socket-proxy:0.3.0"
 	ImageController  = "glovebox-stack-controller:local"
 
-	StackControllerHost = "http://stack-controller"
+	StackControllerHost = "http://" + HostnameStackController
+
+	// Docker label keys glovebox stamps on its images/containers.
+	LabelTest         = "io.glovebox.test"
+	LabelImageCreated = "io.glovebox.image.created"
+
+	// HealthPath is the controller's liveness endpoint.
+	HealthPath = "/health"
 )
 
-// GbxConfig holds runtime configuration for the host CLI (cmd/gbx). It is
-// the host-side mirror of ControllerConfig: same shape, different scope.
+// GbxConfig holds runtime configuration for the host CLI (cmd/gbx).
 type GbxConfig struct {
-	// Libexec is the read-only package dir (docker recipes, defaults). When
-	// unset it stays empty; callers that need it check explicitly so error
-	// messages name the variable rather than failing deep in the stack.
+	// Libexec is the read-only package dir (docker recipes, defaults).
 	Libexec string
 	// ConfigDir is the user-writable state dir, default ~/.config/glovebox.
 	ConfigDir string
 	// StateDir defaults to ${ConfigDir}/state.
 	StateDir string
 	// ControllerHostPort is the host loopback port published from the
-	// stack-controller container's HostAddr (default "17001"). The literal
-	// "17001" avoids the macOS AFS3 conflict on the controller's container
-	// port (7001).
+	// stack-controller container's HostAddr (default "17001").
 	ControllerHostPort string
 	// ControllerURL is what `gbx stack ...` posts to. Default is
 	// http://127.0.0.1:${ControllerHostPort}.
 	ControllerURL string
 	// AgentImage is the repository:tag every project's agent container is
-	// built from and run against. Tests can point this at a throwaway tag
-	// so a `gbx rebuild` from one test doesn't untag the operator's real
-	// glovebox-agent:local image.
+	// built from and run against.
 	AgentImage string
 	// TestMode is true when the host CLI runs from the test suite
-	// (GBX_TEST_MODE=1). It is the single signal agent containers carry
-	// the `io.glovebox.test=1` label so `cleanup_glovebox_test_resources`
-	// can wipe leaks deterministically regardless of state-dir state.
+	// (GBX_TEST_MODE=1).
 	TestMode bool
 }
 

@@ -163,7 +163,7 @@ var ensureAgentFn project.EnsureAgentFn = func(ctx context.Context, dc dockerx.C
 	gcfg := config.GbxFromEnv()
 	var labels map[string]string
 	if gcfg.TestMode {
-		labels = map[string]string{"io.glovebox.test": "1"}
+		labels = map[string]string{config.LabelTest: "1"}
 	}
 	image := plugin.SelectImage(ctx, hostDocker, gcfg.AgentImage, pid)
 	return agent.Ensure(ctx, agent.EnsureSpec{
@@ -173,8 +173,8 @@ var ensureAgentFn project.EnsureAgentFn = func(ctx context.Context, dc dockerx.C
 			Workspace:      ws,
 			Image:          image,
 			StateProjDir:   stateProjDir,
-			StateSharedDir: path.Join(stateDir, "shared"),
-			DockerDir:      path.Join(libexec, "docker"),
+			StateSharedDir: path.Join(stateDir, config.SharedPath),
+			DockerDir:      path.Join(libexec, config.DockerDirName),
 			HostEnv:        envMap(),
 			Mounts:         mounts,
 			Labels:         labels,

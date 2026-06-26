@@ -277,8 +277,8 @@ func (c *StackImageAllowCmd) Run(kctx *kong.Context) error {
 	// Containment: confine the allowlist file to <libexec>/docker/, since
 	// libexec is taint-derived (read from GBX_LIBEXEC env).
 	path, err := agent.UnderBase(
-		filepath.Join(libexec, "docker"),
-		filepath.Join(libexec, "docker", "image-allowlist.txt"),
+		filepath.Join(libexec, config.DockerDirName),
+		filepath.Join(libexec, config.DockerDirName, "image-allowlist.txt"),
 	)
 	if err != nil {
 		return err

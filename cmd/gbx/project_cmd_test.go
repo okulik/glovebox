@@ -122,7 +122,7 @@ func TestProjectLsVerboseTree(t *testing.T) {
 	// Give the agent container a build-stamp label so the derived tag shows.
 	fake := hostClient.(*dockerx.Fake)
 	ac := fake.Containers[config.ContainerAgentPrefix+pid]
-	ac.Labels = map[string]string{"io.glovebox.image.created": time.Now().UTC().Add(-2 * time.Hour).Format(dockerx.ImageCreatedLabelFormat)}
+	ac.Labels = map[string]string{config.LabelImageCreated: time.Now().UTC().Add(-2 * time.Hour).Format(dockerx.ImageCreatedLabelFormat)}
 	fake.Containers[config.ContainerAgentPrefix+pid] = ac
 
 	stdout, stderr, code := runCLI(t, "ls", "-v")

@@ -15,20 +15,17 @@ import (
 	"github.com/moby/moby/api/pkg/stdcopy"
 	dockerclient "github.com/moby/moby/client"
 	"golang.org/x/term"
+
+	"github.com/okulik/glovebox/internal/config"
 )
 
-const (
-	// ImageCreatedLabel is stamped on every image BuildImage produces, with the
-	// build time as its value. Containers inherit image labels, so `gbx ls -v`
-	// shows which build a container's image came from - the tag alone can't tell
-	// (each rebuild moves `glovebox-agent:local` to the new image, leaving older
-	// containers on a now-untagged one).
-	ImageCreatedLabel = "io.glovebox.image.created"
-
-	// ImageCreatedLabelFormat renders ISO-8601 UTC with millisecond precision,
-	// e.g. 2024-09-09T14:16:46.786Z.
-	ImageCreatedLabelFormat = "2006-01-02T15:04:05.000Z"
-)
+// ImageCreatedLabelFormat renders ISO-8601 UTC with millisecond precision,
+// e.g. 2024-09-09T14:16:46.786Z. The label key itself is config.LabelImageCreated:
+// it is stamped on every image BuildImage produces, with the build time as its
+// value. Containers inherit image labels, so `gbx ls -v` shows which build a
+// container's image came from - the tag alone can't tell (each rebuild moves
+// `glovebox-agent:local` to the new image, leaving older containers on a now-untagged one).
+const ImageCreatedLabelFormat = "2006-01-02T15:04:05.000Z"
 
 // HostClient is the subset of `docker` CLI invocations the host-side gbx makes.
 // Production uses NewHost (shells out via os/exec). Tests pass a fake.
@@ -151,7 +148,7 @@ func buildCLIArgs(spec BuildSpec, created time.Time) []string {
 	for _, k := range keys {
 		args = append(args, "--build-arg", k+"="+spec.Args[k])
 	}
-	args = append(args, "--label", ImageCreatedLabel+"="+created.UTC().Format(ImageCreatedLabelFormat))
+	args = append(args, "--label", config.LabelImageCreated+"="+created.UTC().Format(ImageCreatedLabelFormat))
 	args = append(args, "-t", spec.Tag, "-f", spec.Dockerfile, spec.Context)
 	return args
 }

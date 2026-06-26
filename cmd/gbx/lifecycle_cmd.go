@@ -230,7 +230,7 @@ func (c *ProjectStateSizeCmd) Run(kctx *kong.Context) error {
 	fmt.Fprintln(kctx.Stdout, "\nSHARED")
 	fmt.Fprintf(kctx.Stdout, "%-12s %s\n", "DIR", "SIZE")
 	for _, d := range []string{"npm", "uv-tools", "bin", "cache", "shell-history"} {
-		path := filepath.Join(config.GbxFromEnv().StateDir, "shared", d)
+		path := filepath.Join(config.GbxFromEnv().StateDir, config.SharedPath, d)
 		if _, err := os.Stat(path); err == nil {
 			size := duHuman(path)
 			fmt.Fprintf(kctx.Stdout, "%-12s %s\n", d, size)
@@ -258,7 +258,7 @@ func duHuman(path string) string {
 func agentBuildSpec(libexec string) dockerx.BuildSpec {
 	return dockerx.BuildSpec{
 		Tag:        config.GbxFromEnv().AgentImage,
-		Dockerfile: filepath.Join(libexec, "docker", "Dockerfile"),
+		Dockerfile: filepath.Join(libexec, config.DockerDirName, "Dockerfile"),
 		Context:    libexec,
 		Args: map[string]string{
 			"HOST_UID": strconv.Itoa(os.Getuid()),

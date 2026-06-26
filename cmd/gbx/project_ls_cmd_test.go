@@ -45,16 +45,16 @@ func TestDeriveTag(t *testing.T) {
 	now := time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)
 	built := now.Add(-3 * time.Hour).UTC().Format(dockerx.ImageCreatedLabelFormat)
 
-	if got := deriveTag(map[string]string{"io.glovebox.test": "1"}, now); got != "test" {
+	if got := deriveTag(map[string]string{config.LabelTest: "1"}, now); got != "test" {
 		t.Errorf("test-only tag = %q, want %q", got, "test")
 	}
-	if got := deriveTag(map[string]string{"io.glovebox.image.created": built}, now); got != "built 3h ago" {
+	if got := deriveTag(map[string]string{config.LabelImageCreated: built}, now); got != "built 3h ago" {
 		t.Errorf("built tag = %q, want %q", got, "built 3h ago")
 	}
-	if got := deriveTag(map[string]string{"io.glovebox.test": "1", "io.glovebox.image.created": built}, now); got != "test, built 3h ago" {
+	if got := deriveTag(map[string]string{config.LabelTest: "1", config.LabelImageCreated: built}, now); got != "test, built 3h ago" {
 		t.Errorf("combined tag = %q, want %q", got, "test, built 3h ago")
 	}
-	if got := deriveTag(map[string]string{"io.glovebox.image.created": "not-a-timestamp"}, now); got != "built" {
+	if got := deriveTag(map[string]string{config.LabelImageCreated: "not-a-timestamp"}, now); got != "built" {
 		t.Errorf("unparseable timestamp tag = %q, want %q", got, "built")
 	}
 	if got := deriveTag(map[string]string{"foo": "bar"}, now); got != "" {

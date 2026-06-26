@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/okulik/glovebox/internal/config"
 )
 
 // Server holds the two HTTP listeners.
@@ -42,7 +44,7 @@ func New(internalAddr, hostAddr string, deps Deps) *Server {
 // and would otherwise drown out real traffic.
 func logRequests(label string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" {
+		if r.URL.Path == config.HealthPath {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -67,7 +69,7 @@ func (s *statusRecorder) WriteHeader(code int) {
 }
 
 func registerCommon(mux *http.ServeMux, deps applyDeps) {
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET "+config.HealthPath, func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.Handle("GET /projects/{pid}/status", newStatusHandler(deps))

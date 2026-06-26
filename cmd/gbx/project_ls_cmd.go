@@ -37,7 +37,7 @@ func (c *ProjectLsCmd) Run(kctx *kong.Context) error {
 	wantContainers := c.JSON || c.Verbose
 	var glovebox []dockerx.ContainerSummary
 	if wantContainers && dc != nil {
-		glovebox, err = dc.ListContainersByPrefix(context.Background(), "glovebox-")
+		glovebox, err = dc.ListContainersByPrefix(context.Background(), config.ContainerPrefix)
 		if err != nil && !c.JSON {
 			fmt.Fprintf(kctx.Stderr, "      (failed to list containers: %v)\n", err)
 		}
@@ -203,7 +203,7 @@ func renderProjectTableVerbose(w io.Writer, sty styler, projects []project.Proje
 	sort.Slice(others, func(i, j int) bool { return others[i].Name < others[j].Name })
 	otherCells := make([]cell, 0, len(others))
 	for _, c := range others {
-		name, _ := strings.CutPrefix(c.Name, "glovebox-")
+		name, _ := strings.CutPrefix(c.Name, config.ContainerPrefix)
 		otherCells = append(otherCells, toCell(c, name))
 	}
 
@@ -312,10 +312,10 @@ func formatRelAge(ts, now time.Time) string {
 // Both are joined with ", " in that order; no relevant labels yields "".
 func deriveTag(labels map[string]string, now time.Time) string {
 	var tags []string
-	if labels["io.glovebox.test"] == "1" {
+	if labels[config.LabelTest] == "1" {
 		tags = append(tags, "test")
 	}
-	if raw, ok := labels[dockerx.ImageCreatedLabel]; ok {
+	if raw, ok := labels[config.LabelImageCreated]; ok {
 		if ts, err := time.Parse(dockerx.ImageCreatedLabelFormat, raw); err == nil {
 			tags = append(tags, "built "+formatRelAge(ts, now))
 		} else {

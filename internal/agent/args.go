@@ -61,7 +61,7 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 
 	cfg = &container.Config{
 		Image:      spec.Image,
-		Hostname:   "glovebox-" + spec.PID,
+		Hostname:   config.ContainerPrefix + spec.PID,
 		User:       HostUser(),
 		WorkingDir: "/workspace",
 		Cmd:        []string{"sleep", "infinity"},
@@ -80,9 +80,9 @@ func HostUser() string { return fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()) }
 
 func buildEnvVars(spec CreateSpec) []string {
 	envVars := map[string]string{
-		"HTTPS_PROXY":              "http://proxy:3128",
-		"HTTP_PROXY":               "http://proxy:3128",
-		"NO_PROXY":                 "localhost,127.0.0.1,stack-controller",
+		"HTTPS_PROXY":              config.ProxyURL,
+		"HTTP_PROXY":               config.ProxyURL,
+		"NO_PROXY":                 "localhost,127.0.0.1," + config.HostnameStackController,
 		"GBX_PROJECT_ID":           spec.PID,
 		"GBX_CONTROLLER_URL":       agentControllerURL(),
 		"AIDER_INPUT_HISTORY_FILE": "/home/gbx/.aider/.aider.input.history",

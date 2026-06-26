@@ -56,7 +56,7 @@ func (c *SyncCmd) Run(kctx *kong.Context) error {
 	if libexec == "" {
 		return errors.New("GBX_LIBEXEC not set (should be set by bin/gbx)")
 	}
-	dockerDir := filepath.Join(libexec, "docker")
+	dockerDir := filepath.Join(libexec, config.DockerDirName)
 
 	anyChanged := false
 	failed := false

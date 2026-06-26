@@ -85,7 +85,7 @@ func runHealthcheck(cfg config.ControllerConfig) int {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+"/health", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+config.HealthPath, nil)
 	if err != nil {
 		return 1
 	}
