@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/manifest"
 )
 
@@ -47,13 +48,10 @@ type Healthcheck struct {
 }
 
 // Plan returns the planned resources for the given (projectID, manifest).
-// Services (and their volumes) are emitted in sorted order so the output is
-// deterministic - important for stable test fixtures and reproducible
-// last_apply records.
 func Plan(projectID string, m *manifest.Manifest) StackPlan {
 	p := StackPlan{
 		ProjectID:       projectID,
-		NetworkName:     "glovebox-stack-" + projectID,
+		NetworkName:     config.ContainerStackPrefix + projectID,
 		NetworkInternal: true,
 	}
 	names := make([]string, 0, len(m.Services))
@@ -64,7 +62,7 @@ func Plan(projectID string, m *manifest.Manifest) StackPlan {
 	for _, name := range names {
 		svc := m.Services[name]
 		cs := ContainerSpec{
-			Name:    fmt.Sprintf("glovebox-stack-%s-%s", projectID, name),
+			Name:    fmt.Sprintf("%s%s-%s", config.ContainerStackPrefix, projectID, name),
 			Image:   svc.Image,
 			Env:     svc.Env,
 			Aliases: []string{name},
@@ -87,7 +85,7 @@ func Plan(projectID string, m *manifest.Manifest) StackPlan {
 		sort.Strings(vnames)
 		for _, vname := range vnames {
 			target := svc.Volumes[vname]
-			full := fmt.Sprintf("glovebox-stack-%s-%s-%s", projectID, name, vname)
+			full := fmt.Sprintf("%s%s-%s-%s", config.ContainerStackPrefix, projectID, name, vname)
 			cs.Mounts = append(cs.Mounts, MountSpec{VolumeName: full, Target: target})
 			p.Volumes = append(p.Volumes, full)
 		}
@@ -98,19 +96,13 @@ func Plan(projectID string, m *manifest.Manifest) StackPlan {
 }
 
 // ServiceDefaults bundles the per-image knowledge the controller injects
-// when a manifest doesn't supply it. Probe is the healthcheck command tuned
-// to that image's official build (uses a tool guaranteed to be in the image
-// - e.g. redis-cli in redis); Port is the canonical service port surfaced
-// through GET /projects/{pid}/info so agents can discover it.
+// when a manifest doesn't supply it.
 type ServiceDefaults struct {
 	Probe []string
 	Port  int
 }
 
 // serviceDefaults is the single source of truth for per-image defaults.
-// Adding a service means editing one entry here - both the healthcheck
-// injection in resolveHealthcheck() and the /info port lookup
-// (api.DefaultPortFor) read from it.
 var serviceDefaults = map[string]ServiceDefaults{
 	"redis":    {Probe: []string{"CMD-SHELL", "redis-cli ping | grep -q PONG"}, Port: 6379},
 	"postgres": {Probe: []string{"CMD-SHELL", "pg_isready -h 127.0.0.1 -q"}, Port: 5432},

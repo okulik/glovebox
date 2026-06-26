@@ -174,7 +174,7 @@ func (c *UpdateCmd) Run() error {
 	if err != nil {
 		return err
 	}
-	cname := "glovebox-agent-" + pid
+	cname := config.ContainerAgentPrefix + pid
 
 	// Resolve the install argv on the host and exec it directly inside the
 	// container via the SDK. This used to round-trip through `gbxa update`,

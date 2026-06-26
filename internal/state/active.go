@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 
 	"github.com/okulik/glovebox/internal/agent"
+	"github.com/okulik/glovebox/internal/config"
 )
 
 // ActivePID returns the pid recorded in ${configDir}/active-project, or the
@@ -33,7 +34,7 @@ func ActivePath(configDir string) (string, error) {
 }
 
 func readActiveLine(configDir string, idx int) (string, error) {
-	f, err := os.Open(filepath.Join(configDir, "active-project"))
+	f, err := os.Open(filepath.Join(configDir, config.ActiveProjectPath))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", nil
@@ -62,7 +63,7 @@ func WriteActive(configDir, pid, workspace string) error {
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
-	final := filepath.Join(configDir, "active-project")
+	final := filepath.Join(configDir, config.ActiveProjectPath)
 	content := []byte(pid + "\n" + workspace + "\n")
 	return agent.WriteAtomic(final, content, 0o600)
 }

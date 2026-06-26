@@ -3,18 +3,12 @@ package state
 import (
 	"context"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
 // Reconcile walks the store's persisted records and ensures the corresponding
-// Docker resources exist. Missing networks/volumes are created and missing
-// containers are recreated and started. Containers that are already present
-// are left alone (whether running or stopped).
-//
-// For each project, the per-project agent container (glovebox-agent-<pid>) is
-// (re-)attached to the project's stack network so DNS to services works across
-// controller restarts. If the agent container is not yet present, the attach
-// is skipped silently.
+// Docker resources exist.
 func Reconcile(ctx context.Context, s *Store, dk dockerx.ControllerClient) error {
 	for pid, rec := range s.All() {
 		if rec.Manifest == nil {
@@ -38,7 +32,7 @@ func Reconcile(ctx context.Context, s *Store, dk dockerx.ControllerClient) error
 				_ = dk.StartContainer(ctx, newID)
 			}
 		}
-		agentName := "glovebox-agent-" + pid
+		agentName := config.ContainerAgentPrefix + pid
 		if id, _, _ := dk.ContainerByName(ctx, agentName); id != "" {
 			_ = dk.ConnectNetwork(ctx, agentName, plan.NetworkName)
 		}

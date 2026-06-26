@@ -120,7 +120,7 @@ func (f *Fake) CreateContainer(_ context.Context, spec ContainerSpec, _ string) 
 		return "", e
 	}
 	id := "id-" + spec.Name
-	f.Containers[spec.Name] = FakeContainer{ID: id, Image: spec.Image, State: "created", Health: "starting"}
+	f.Containers[spec.Name] = FakeContainer{ID: id, Image: spec.Image, State: string(container.StateCreated), Health: "starting"}
 	return id, nil
 }
 
@@ -135,7 +135,7 @@ func (f *Fake) CreateContainerRaw(_ context.Context, name string, cfg *container
 	if cfg != nil {
 		image = cfg.Image
 	}
-	f.Containers[name] = FakeContainer{ID: id, Image: image, State: "created"}
+	f.Containers[name] = FakeContainer{ID: id, Image: image, State: string(container.StateCreated)}
 	return id, nil
 }
 
@@ -143,13 +143,13 @@ func (f *Fake) StartContainer(_ context.Context, idOrName string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if c, ok := f.Containers[idOrName]; ok {
-		c.State = "running"
+		c.State = string(container.StateRunning)
 		f.Containers[idOrName] = c
 		return nil
 	}
 	for name, c := range f.Containers {
 		if c.ID == idOrName {
-			c.State = "running"
+			c.State = string(container.StateRunning)
 			f.Containers[name] = c
 			return nil
 		}
@@ -161,13 +161,13 @@ func (f *Fake) StopContainer(_ context.Context, idOrName string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if c, ok := f.Containers[idOrName]; ok {
-		c.State = "exited"
+		c.State = string(container.StateExited)
 		f.Containers[idOrName] = c
 		return nil
 	}
 	for name, c := range f.Containers {
 		if c.ID == idOrName {
-			c.State = "exited"
+			c.State = string(container.StateExited)
 			f.Containers[name] = c
 			return nil
 		}

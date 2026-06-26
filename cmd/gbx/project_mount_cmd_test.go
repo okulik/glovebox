@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/project"
 )
 
@@ -26,10 +27,10 @@ func setupMountTestProject(t *testing.T) string {
 	if err := os.MkdirAll(projDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(projDir, "workspace-path"), []byte(wsResolved+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projDir, config.WorkspacePath), []byte(wsResolved+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg, "active-project"), []byte(pid+"\n"+wsResolved+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfg, config.ActiveProjectPath), []byte(pid+"\n"+wsResolved+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("GBX_CONFIG_DIR", cfg)

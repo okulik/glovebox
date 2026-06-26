@@ -5,8 +5,6 @@
 package plugin
 
 import (
-	// SHA-1 is an identifier hash here (like internal/projectid), not a
-	// security primitive: plugin ids are short names for fragment files.
 	//nolint:gosec // G505: SHA-1 used as identifier hash, not crypto.
 	"crypto/sha1"
 	"encoding/hex"
@@ -16,12 +14,10 @@ import (
 	"time"
 )
 
-// descriptionDirective is the comment prefix that carries a plugin's one-line
-// description. It must appear in every stored fragment.
-const descriptionDirective = "# gbx:description:"
+const (
+	descriptionDirective = "gbx:description:"
+)
 
-// idLen is how many leading hex chars of the SHA-1 form a plugin id. Pids are
-// 12; a single project has only a handful of plugins, so 8 is ample.
 const idLen = 8
 
 // Plugin is one stored Dockerfile fragment.
@@ -33,11 +29,9 @@ type Plugin struct {
 	Content     string
 }
 
-// HashID returns the plugin id for content created at ts: the first idLen
-// lowercase hex chars of sha1(content + RFC3339Nano timestamp). The timestamp
-// makes two plugins with identical content still get distinct ids.
+// HashID returns the plugin id for content created at ts
 func HashID(content string, ts time.Time) string {
-	//nolint:gosec // G401: identifier hash, not cryptographic; see import comment.
+	//nolint:gosec
 	sum := sha1.Sum([]byte(content + ts.UTC().Format(time.RFC3339Nano)))
 	return hex.EncodeToString(sum[:])[:idLen]
 }
@@ -50,24 +44,21 @@ func ParseDescription(content string) (string, error) {
 		if !strings.HasPrefix(t, "#") {
 			continue
 		}
-		// Normalize "#   gbx:description:" → "gbx:description:".
 		body := strings.TrimSpace(strings.TrimPrefix(t, "#"))
-		const key = "gbx:description:"
-		if rest, ok := strings.CutPrefix(body, key); ok {
+		if rest, ok := strings.CutPrefix(body, descriptionDirective); ok {
 			desc := strings.TrimSpace(rest)
 			if desc == "" {
-				return "", errors.New("plugin description is empty (fill in the `# gbx:description:` line)")
+				return "", errors.New("plugin description is empty (fill in the `# " + descriptionDirective + "` line)")
 			}
 			return desc, nil
 		}
 	}
-	return "", errors.New("plugin is missing a `# gbx:description:` line")
+	return "", errors.New("plugin is missing a `# " + descriptionDirective + "` line")
 }
 
 // Validate reports whether content is storable as a fragment: it must carry a
 // non-empty description directive and must not contain a FROM or ADD
-// instruction (FROM is generated; ADD is disallowed). Comment lines are
-// ignored, so a commented FROM/ADD in the instructional template is fine.
+// instruction (FROM is generated; ADD is disallowed).
 func Validate(content string) error {
 	if _, err := ParseDescription(content); err != nil {
 		return err
@@ -132,7 +123,7 @@ func Template(pid string) string {
 #
 # REQUIRED: put a one-line description after the directive below. It is shown
 # by ` + "`gbx plugin ls`" + `.
-` + descriptionDirective + `
+` + "# " + descriptionDirective + `
 #
 # ---- examples (edit or delete) ---------------------------------------
 # RUN apt-get update \

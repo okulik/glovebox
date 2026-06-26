@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/manifest"
 )
@@ -47,7 +48,7 @@ func (h *serviceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	name := "glovebox-stack-" + pid + "-" + svc
+	name := config.ContainerStackPrefix + pid + "-" + svc
 	id, _, err := h.deps.docker.ContainerByName(r.Context(), name)
 	if err != nil || id == "" {
 		writeError(w, http.StatusNotFound, "container_missing", name)
@@ -95,7 +96,7 @@ func (h *resetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer mu.Unlock()
 
 	ctx := r.Context()
-	name := "glovebox-stack-" + pid + "-" + svc
+	name := config.ContainerStackPrefix + pid + "-" + svc
 	plan := dockerx.Plan(pid, &manifest.Manifest{Version: 1, Services: map[string]manifest.Service{svc: cfg}})
 
 	// Reset is inherently destructive (the point is to wipe data), so it is
@@ -187,7 +188,7 @@ func (h *logsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "service_not_in_manifest", svc)
 		return
 	}
-	id, _, _ := h.deps.docker.ContainerByName(r.Context(), "glovebox-stack-"+pid+"-"+svc)
+	id, _, _ := h.deps.docker.ContainerByName(r.Context(), config.ContainerStackPrefix+pid+"-"+svc)
 	if id == "" {
 		writeError(w, http.StatusNotFound, "container_missing", "")
 		return

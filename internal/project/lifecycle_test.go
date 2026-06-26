@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
@@ -57,11 +58,11 @@ func TestNewProjectRegistersAndSetsDefaultWhenNoneYet(t *testing.T) {
 	if !res.SetAsDefault {
 		t.Error("want SetAsDefault=true on first project")
 	}
-	projDir := filepath.Join(cfg, "state", "projects", res.PID)
-	if _, err := os.Stat(filepath.Join(projDir, "workspace-path")); err != nil {
+	projDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, res.PID)
+	if _, err := os.Stat(filepath.Join(projDir, config.WorkspacePath)); err != nil {
 		t.Errorf("workspace-path missing: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(cfg, "active-project")); err != nil {
+	if _, err := os.Stat(filepath.Join(cfg, config.ActiveProjectPath)); err != nil {
 		t.Errorf("active-project missing: %v", err)
 	}
 	if len(calls) != 1 {
@@ -96,7 +97,7 @@ func TestNewProjectKeepsExistingDefault(t *testing.T) {
 	if res2.PID == res1.PID {
 		t.Errorf("expected different pids, got %s twice", res1.PID)
 	}
-	data, _ := os.ReadFile(filepath.Join(cfg, "active-project"))
+	data, _ := os.ReadFile(filepath.Join(cfg, config.ActiveProjectPath))
 	if !strings.HasPrefix(string(data), res1.PID) {
 		t.Errorf("default changed: %q", data)
 	}
@@ -145,20 +146,20 @@ func TestNewProjectRejectsMissingPath(t *testing.T) {
 
 func TestUseFlipsDefault(t *testing.T) {
 	cfg := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(cfg, "state", "projects", "cccc2222dddd"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "cccc2222dddd"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb", "workspace-path"),
+	if err := os.WriteFile(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb", config.WorkspacePath),
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if err := Use(cfg, "aaaa"); err != nil {
 		t.Fatalf("Use: %v", err)
 	}
-	data, _ := os.ReadFile(filepath.Join(cfg, "active-project"))
+	data, _ := os.ReadFile(filepath.Join(cfg, config.ActiveProjectPath))
 	if !strings.HasPrefix(string(data), "aaaa1111bbbb") {
 		t.Errorf("default not set: %q", data)
 	}
@@ -166,7 +167,7 @@ func TestUseFlipsDefault(t *testing.T) {
 
 func TestUseRejectsUnknownPid(t *testing.T) {
 	cfg := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(cfg, "state", "projects"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cfg, config.StatePath, config.ProjectsPath), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	err := Use(cfg, "deadbeefdead")
@@ -180,14 +181,14 @@ func TestUseRejectsUnknownPid(t *testing.T) {
 
 func TestRemoveAllPaths(t *testing.T) {
 	cfg := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb", "workspace-path"),
+	if err := os.WriteFile(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb", config.WorkspacePath),
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg, "active-project"),
+	if err := os.WriteFile(filepath.Join(cfg, config.ActiveProjectPath),
 		[]byte("aaaa1111bbbb\n/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write active: %v", err)
 	}
@@ -208,20 +209,20 @@ func TestRemoveAllPaths(t *testing.T) {
 	if len(removed) != 1 || removed[0] != "aaaa1111bbbb" {
 		t.Errorf("agent remove not called as expected: %v", removed)
 	}
-	if _, err := os.Stat(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb")); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("state dir should be removed: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(cfg, "active-project")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(cfg, config.ActiveProjectPath)); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("active-project should be cleared")
 	}
 }
 
 func TestRemoveDefaultPreservesStateDir(t *testing.T) {
 	cfg := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb", "workspace-path"),
+	if err := os.WriteFile(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb", config.WorkspacePath),
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -235,17 +236,17 @@ func TestRemoveDefaultPreservesStateDir(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb")); err != nil {
+	if _, err := os.Stat(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb")); err != nil {
 		t.Errorf("state dir should be kept by default: %v", err)
 	}
 }
 
 func TestRemoveAborts(t *testing.T) {
 	cfg := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg, "state", "projects", "aaaa1111bbbb", "workspace-path"),
+	if err := os.WriteFile(filepath.Join(cfg, config.StatePath, config.ProjectsPath, "aaaa1111bbbb", config.WorkspacePath),
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -303,7 +304,7 @@ func TestNewDoesNotResurrectDefaultAfterRemoval(t *testing.T) {
 	if second.SetAsDefault {
 		t.Error("removed-then-recreated project must not auto-default")
 	}
-	if _, err := os.Stat(filepath.Join(cfg, "active-project")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(cfg, config.ActiveProjectPath)); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("active-project should still be absent: %v", err)
 	}
 }

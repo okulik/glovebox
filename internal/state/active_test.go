@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/config"
 )
 
 func TestActivePIDMissing(t *testing.T) {
@@ -30,7 +32,7 @@ func TestActivePathMissing(t *testing.T) {
 
 func TestActivePIDPresent(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "active-project"),
+	if err := os.WriteFile(filepath.Join(dir, config.ActiveProjectPath),
 		[]byte("aaaa1111bbbb\n/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
@@ -45,7 +47,7 @@ func TestActivePIDPresent(t *testing.T) {
 
 func TestActivePathPresent(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "active-project"),
+	if err := os.WriteFile(filepath.Join(dir, config.ActiveProjectPath),
 		[]byte("aaaa1111bbbb\n/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
@@ -60,7 +62,7 @@ func TestActivePathPresent(t *testing.T) {
 
 func TestActivePIDOneLineFile(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "active-project"),
+	if err := os.WriteFile(filepath.Join(dir, config.ActiveProjectPath),
 		[]byte("aaaa1111bbbb\n"), 0o644); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
@@ -101,7 +103,7 @@ func TestWriteActiveCreatesConfigDir(t *testing.T) {
 	if err := WriteActive(nested, "aaaa1111bbbb", "/work/foo"); err != nil {
 		t.Fatalf("WriteActive: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(nested, "active-project")); err != nil {
+	if _, err := os.Stat(filepath.Join(nested, config.ActiveProjectPath)); err != nil {
 		t.Fatalf("file not created in nested dir: %v", err)
 	}
 }
@@ -116,7 +118,7 @@ func TestWriteActiveAtomicNoTmpfileLeak(t *testing.T) {
 		t.Fatalf("readdir: %v", err)
 	}
 	for _, e := range entries {
-		if e.Name() != "active-project" {
+		if e.Name() != config.ActiveProjectPath {
 			t.Fatalf("tmpfile leak: %q", e.Name())
 		}
 	}

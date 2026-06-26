@@ -10,20 +10,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/moby/moby/api/types/container"
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
 func TestProjectUse(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "state", "projects", "aaaa1111bbbb"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath, "aaaa1111bbbb"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "state", "projects", "aaaa1111bbbb", "workspace-path"),
+	if err := os.WriteFile(filepath.Join(dir, config.StatePath, config.ProjectsPath, "aaaa1111bbbb", config.WorkspacePath),
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
 	stdout, stderr, code := runCLI(t, "use", "aaaa")
 	if code != 0 {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
@@ -31,7 +33,7 @@ func TestProjectUse(t *testing.T) {
 	if !strings.Contains(stdout, "Default project:") {
 		t.Fatalf("stdout: want 'Default project:', got %q", stdout)
 	}
-	data, _ := os.ReadFile(filepath.Join(dir, "active-project"))
+	data, _ := os.ReadFile(filepath.Join(dir, config.ActiveProjectPath))
 	if !strings.HasPrefix(string(data), "aaaa1111bbbb") {
 		t.Fatalf("active-project not written: %q", data)
 	}
@@ -39,11 +41,11 @@ func TestProjectUse(t *testing.T) {
 
 func TestProjectUseUnknownPid(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "state", "projects"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
 	_, stderr, code := runCLI(t, "use", "deadbeefdead")
 	if code == 0 {
 		t.Fatal("want non-zero exit for unknown pid")
@@ -55,11 +57,11 @@ func TestProjectUseUnknownPid(t *testing.T) {
 
 func TestProjectLsEmpty(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "state", "projects"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
 	stdout, _, code := runCLI(t, "ls")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -77,21 +79,21 @@ func seedLsProject(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
 	pid := "aaaa1111bbbb"
-	if err := os.MkdirAll(filepath.Join(dir, "state", "projects", pid), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath, pid), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "state", "projects", pid, "workspace-path"),
+	if err := os.WriteFile(filepath.Join(dir, config.StatePath, config.ProjectsPath, pid, config.WorkspacePath),
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-agent-"+pid] = dockerx.FakeContainer{
-		ID: "id-agent", Image: "glovebox-agent:local", State: "running", Status: "Up 2 hours",
+	fake.Containers[config.ContainerAgentPrefix+pid] = dockerx.FakeContainer{
+		ID: "id-agent", Image: "glovebox-agent:local", State: string(container.StateRunning), Status: "Up 2 hours",
 	}
-	fake.Containers["glovebox-egress-proxy"] = dockerx.FakeContainer{
-		ID: "id-proxy", Image: "glovebox-proxy:local", State: "running", Status: "Up 5 hours",
+	fake.Containers[config.ContainerEgressProxy] = dockerx.FakeContainer{
+		ID: "id-proxy", Image: "glovebox-proxy:local", State: string(container.StateRunning), Status: "Up 5 hours",
 	}
 	hostClient = fake
 	t.Cleanup(func() { hostClient = nil })
@@ -119,9 +121,9 @@ func TestProjectLsVerboseTree(t *testing.T) {
 	pid := "aaaa1111bbbb" // the fixed pid seedLsProject registers
 	// Give the agent container a build-stamp label so the derived tag shows.
 	fake := hostClient.(*dockerx.Fake)
-	ac := fake.Containers["glovebox-agent-"+pid]
+	ac := fake.Containers[config.ContainerAgentPrefix+pid]
 	ac.Labels = map[string]string{"io.glovebox.image.created": time.Now().UTC().Add(-2 * time.Hour).Format(dockerx.ImageCreatedLabelFormat)}
-	fake.Containers["glovebox-agent-"+pid] = ac
+	fake.Containers[config.ContainerAgentPrefix+pid] = ac
 
 	stdout, stderr, code := runCLI(t, "ls", "-v")
 	if code != 0 {
@@ -171,15 +173,15 @@ func TestProjectLsJSONIncludesImage(t *testing.T) {
 func TestProjectRmYesFullId(t *testing.T) {
 	dir := t.TempDir()
 	pid := "aaaa1111bbbb"
-	if err := os.MkdirAll(filepath.Join(dir, "state", "projects", pid), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath, pid), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "state", "projects", pid, "workspace-path"),
+	if err := os.WriteFile(filepath.Join(dir, config.StatePath, config.ProjectsPath, pid, config.WorkspacePath),
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
 	prevRm := removeAgentFn
 	t.Cleanup(func() { removeAgentFn = prevRm })
 	called := false
@@ -197,21 +199,21 @@ func TestProjectRmYesFullId(t *testing.T) {
 	if !called {
 		t.Error("RemoveAgent was not called")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "state", "projects", pid)); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(dir, config.StatePath, config.ProjectsPath, pid)); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("state dir should be removed when --delete-state is passed: %v", err)
 	}
 }
 
 func TestProjectRmAmbiguousErrors(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "state", "projects", "abcd11111111"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath, "abcd11111111"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "state", "projects", "abcd22222222"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath, "abcd22222222"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
 	_, stderr, code := runCLI(t, "rm", "abcd", "--yes")
 	if code == 0 {
 		t.Fatal("want non-zero exit for ambiguous")
@@ -241,7 +243,7 @@ func stubLibexec(t *testing.T) string {
 func TestProjectNewRejectsMissingPath(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
 	t.Setenv("GBX_LIBEXEC", "/tmp/nonexistent-libexec")
 	t.Setenv("GBX_SKIP_STACK_UP", "1")
 	_, stderr, code := runCLI(t, "new", "/this/does/not/exist/zz")
@@ -258,7 +260,7 @@ func TestProjectNewHappyPath(t *testing.T) {
 	ws := t.TempDir()
 	libexec := stubLibexec(t)
 	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
 	t.Setenv("GBX_LIBEXEC", libexec)
 	t.Setenv("GBX_SKIP_STACK_UP", "1")
 	prev := ensureAgentFn

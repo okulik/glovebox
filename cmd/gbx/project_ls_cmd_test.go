@@ -4,16 +4,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
 func TestShortContainerName(t *testing.T) {
 	pid := "aaaa1111bbbb"
 	cases := []struct{ in, want string }{
-		{"glovebox-agent-" + pid, "agent"},
-		{"glovebox-stack-" + pid + "-redis", "redis"},
-		{"glovebox-stack-" + pid + "-neo4j", "neo4j"},
-		{"glovebox-egress-proxy", "glovebox-egress-proxy"}, // non-matching: unchanged
+		{config.ContainerAgentPrefix + pid, "agent"},
+		{config.ContainerStackPrefix + pid + "-redis", "redis"},
+		{config.ContainerStackPrefix + pid + "-neo4j", "neo4j"},
+		{config.ContainerEgressProxy, config.ContainerEgressProxy}, // non-matching: unchanged
 	}
 	for _, c := range cases {
 		if got := shortContainerName(c.in, pid); got != c.want {

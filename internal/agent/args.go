@@ -37,18 +37,12 @@ var HostEnvVars = []string{
 	"GOOGLE_APPLICATION_CREDENTIALS",
 }
 
-const (
-	AgentNetwork         = "glovebox-internal"
-	AgentContainerPrefix = "glovebox-agent-"
-	StackControllerHost  = "http://stack-controller"
-)
-
 func agentControllerURL() string {
 	_, port, err := net.SplitHostPort(config.ControllerFromEnv().InternalAddr)
 	if err != nil || port == "" {
 		_, port, _ = net.SplitHostPort(config.DefaultControllerInternalAddr)
 	}
-	return StackControllerHost + ":" + port
+	return config.StackControllerHost + ":" + port
 }
 
 func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *container.HostConfig, netCfg *network.NetworkingConfig, containerName string) {
@@ -61,7 +55,7 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 
 	netCfg = &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			AgentNetwork: {},
+			config.NetworkInternal: {},
 		},
 	}
 
@@ -75,7 +69,7 @@ func BuildCreateConfig(spec CreateSpec) (cfg *container.Config, hostCfg *contain
 		Labels:     spec.Labels,
 	}
 
-	containerName = AgentContainerPrefix + spec.PID
+	containerName = config.ContainerAgentPrefix + spec.PID
 
 	return
 }

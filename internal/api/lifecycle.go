@@ -3,6 +3,9 @@ package api
 import (
 	"net/http"
 	"strings"
+
+	"github.com/moby/moby/api/types/container"
+	"github.com/okulik/glovebox/internal/config"
 )
 
 type statusHandler struct{ deps applyDeps }
@@ -11,7 +14,7 @@ func newStatusHandler(deps applyDeps) http.Handler { return &statusHandler{deps}
 
 func (h *statusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	pid := pathVar(r, "pid")
-	netName := "glovebox-stack-" + pid
+	netName := config.ContainerStackPrefix + pid
 	prefix := netName + "-"
 
 	containers, err := h.deps.docker.ListContainersByPrefix(r.Context(), prefix)
@@ -26,7 +29,7 @@ func (h *statusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		svc := strings.TrimPrefix(c.Name, prefix)
 		health, _ := h.deps.docker.HealthState(r.Context(), c.ID)
 		services[svc] = map[string]string{"state": c.State, "health": health}
-		if c.State == "running" {
+		if c.State == string(container.StateRunning) {
 			running++
 		}
 	}
@@ -57,7 +60,7 @@ func (h *downHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	prefix := "glovebox-stack-" + pid + "-"
+	prefix := config.ContainerStackPrefix + pid + "-"
 	containers, err := h.deps.docker.ListContainersByPrefix(r.Context(), prefix)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list_failed", err.Error())
@@ -87,7 +90,7 @@ func (h *destroyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 	ctx := r.Context()
-	prefix := "glovebox-stack-" + pid + "-"
+	prefix := config.ContainerStackPrefix + pid + "-"
 	containers, err := h.deps.docker.ListContainersByPrefix(ctx, prefix)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list_failed", err.Error())
@@ -103,7 +106,7 @@ func (h *destroyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_ = h.deps.docker.RemoveVolume(ctx, v)
 		}
 	}
-	_ = h.deps.docker.RemoveNetwork(ctx, "glovebox-stack-"+pid)
+	_ = h.deps.docker.RemoveNetwork(ctx, config.ContainerStackPrefix+pid)
 	if h.deps.state != nil {
 		_ = h.deps.state.Delete(pid)
 	}

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/manifest"
 	"github.com/okulik/glovebox/internal/state"
@@ -26,24 +27,12 @@ func projectLock(pid string) (*sync.Mutex, error) {
 }
 
 // forgetProjectLock removes the mutex entry for a project that has been
-// destroyed. The caller must hold the mutex (because we're about to discard
-// it). Without this, projectMu grows unbounded over the controller's lifetime
-// across create/destroy churn.
+// destroyed.
 func forgetProjectLock(pid string) {
 	projectMu.Delete(pid)
 }
 
 // createAndStart creates a container per spec on netName and starts it.
-// Returns the container ID, the phase ("create" or "start") at which it
-// failed, and the error. On success returns (id, "", nil).
-//
-// When create fails the returned id is "". When start fails the returned id
-// is the created container's ID, so callers can register it for cleanup
-// before unwinding.
-//
-// Shared between apply (where the surrounding rollback uses "container_…_failed"
-// error codes) and reset (where the surrounding error codes are "recreate_failed"
-// / "restart_failed") - each caller maps `phase` to its own error code.
 func createAndStart(ctx context.Context, dk dockerx.ControllerClient, spec dockerx.ContainerSpec, netName string) (id, phase string, err error) {
 	id, err = dk.CreateContainer(ctx, spec, netName)
 	if err != nil {
@@ -72,8 +61,7 @@ type Deps struct {
 }
 
 // pathVar reads a path variable from either r.PathValue (mux-routed)
-// or a test override stored in the context. Tests use withPathVar to
-// inject values without going through the mux.
+// or a test override stored in the context.
 func pathVar(r *http.Request, key string) string {
 	if v, ok := r.Context().Value(pathVarKey(key)).(string); ok {
 		return v
@@ -82,8 +70,7 @@ func pathVar(r *http.Request, key string) string {
 }
 
 // pathVarKey is the context-value key tests use to inject path variables
-// without going through the mux. A named string type (rather than the bare
-// string) prevents collisions with other packages' context keys.
+// without going through the mux.
 type pathVarKey string
 
 type applyHandler struct{ deps applyDeps }
@@ -266,7 +253,7 @@ func (h *applyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// the rollback's RemoveNetwork. If the agent container isn't present at
 	// apply time, skip silently - reconcile-on-startup or the next apply will
 	// pick it up once it exists.
-	agentName := "glovebox-agent-" + pid
+	agentName := config.ContainerAgentPrefix + pid
 	if id, _, _ := h.deps.docker.ContainerByName(ctx, agentName); id != "" {
 		if err := h.deps.docker.ConnectNetwork(ctx, agentName, plan.NetworkName); err != nil {
 			rollback()

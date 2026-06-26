@@ -1,20 +1,22 @@
-package state
+package state_test
 
 import (
 	"context"
 	"path/filepath"
 	"testing"
 
+	"github.com/moby/moby/api/types/container"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/manifest"
+	"github.com/okulik/glovebox/internal/state"
 )
 
 func TestReconcile_RestartsMissingContainers(t *testing.T) {
-	s, _ := Open(filepath.Join(t.TempDir(), "p.json"))
+	s, _ := state.Open(filepath.Join(t.TempDir(), "p.json"))
 	_ = s.Save("p1", &manifest.Manifest{Version: 1, Services: map[string]manifest.Service{"redis": {Image: "redis:7-alpine"}}}, "applied", "")
 
 	fake := dockerx.NewFake()
-	if err := Reconcile(context.Background(), s, fake); err != nil {
+	if err := state.Reconcile(context.Background(), s, fake); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := fake.Containers["glovebox-stack-p1-redis"]; !ok {
@@ -23,14 +25,14 @@ func TestReconcile_RestartsMissingContainers(t *testing.T) {
 }
 
 func TestReconcile_AttachesAgentToStackNetwork(t *testing.T) {
-	s, _ := Open(filepath.Join(t.TempDir(), "p.json"))
+	s, _ := state.Open(filepath.Join(t.TempDir(), "p.json"))
 	_ = s.Save("p1", &manifest.Manifest{Version: 1, Services: map[string]manifest.Service{"redis": {Image: "redis:7-alpine"}}}, "applied", "")
 
 	fake := dockerx.NewFake()
 	// Pretend the per-project agent container already exists (compose started it).
-	fake.Containers["glovebox-agent-p1"] = dockerx.FakeContainer{ID: "id-glovebox-agent-p1", State: "running"}
+	fake.Containers["glovebox-agent-p1"] = dockerx.FakeContainer{ID: "id-glovebox-agent-p1", State: string(container.StateRunning)}
 
-	if err := Reconcile(context.Background(), s, fake); err != nil {
+	if err := state.Reconcile(context.Background(), s, fake); err != nil {
 		t.Fatal(err)
 	}
 	if len(fake.NetworkConnects) != 1 {
@@ -43,14 +45,12 @@ func TestReconcile_AttachesAgentToStackNetwork(t *testing.T) {
 }
 
 func TestReconcile_SkipsAgentAttachWhenAgentMissing(t *testing.T) {
-	s, _ := Open(filepath.Join(t.TempDir(), "p.json"))
+	s, _ := state.Open(filepath.Join(t.TempDir(), "p.json"))
 	_ = s.Save("p1", &manifest.Manifest{Version: 1, Services: map[string]manifest.Service{"redis": {Image: "redis:7-alpine"}}}, "applied", "")
 
 	fake := dockerx.NewFake()
-	// Agent container is NOT in fake.Containers - simulate first boot before
-	// the compose `agent` service has come up.
 
-	if err := Reconcile(context.Background(), s, fake); err != nil {
+	if err := state.Reconcile(context.Background(), s, fake); err != nil {
 		t.Fatal(err)
 	}
 	if len(fake.NetworkConnects) != 0 {

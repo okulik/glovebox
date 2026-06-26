@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/moby/moby/api/types/container"
 	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
@@ -42,7 +43,7 @@ func TestEnsureCreatesAndStartsWhenContainerAbsent(t *testing.T) {
 	if !ok {
 		t.Fatalf("container not created: %+v", fake.Containers)
 	}
-	if c.State != "running" {
+	if c.State != string(container.StateRunning) {
 		t.Errorf("container state = %q, want running", c.State)
 	}
 	if c.Image != "glovebox-agent:local" {
@@ -65,7 +66,7 @@ func TestEnsureSkipsCreateWhenContainerExists(t *testing.T) {
 	// without replacing the prior FakeContainer record.
 	cname := "glovebox-agent-aaaa1111bbbb"
 	fake.Containers[cname] = dockerx.FakeContainer{
-		ID: "pre-existing-id", Image: "old-image", State: "exited",
+		ID: "pre-existing-id", Image: "old-image", State: string(container.StateExited),
 	}
 	if err := os.MkdirAll(spec.Create.Workspace, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -77,7 +78,7 @@ func TestEnsureSkipsCreateWhenContainerExists(t *testing.T) {
 	if c.ID != "pre-existing-id" {
 		t.Errorf("Ensure should NOT have recreated the container: ID=%q", c.ID)
 	}
-	if c.State != "running" {
+	if c.State != string(container.StateRunning) {
 		t.Errorf("Ensure should have started the existing container: state=%q", c.State)
 	}
 }
@@ -189,7 +190,7 @@ func TestEnsurePreservesUserEditsToClaudeDefaults(t *testing.T) {
 	spec.Docker = fake
 	// Pretend the container already exists so Ensure skips create.
 	fake.Containers["glovebox-agent-aaaa1111bbbb"] = dockerx.FakeContainer{
-		ID: "pre", State: "exited",
+		ID: "pre", State: string(container.StateExited),
 	}
 	if err := os.MkdirAll(spec.Create.Workspace, 0o755); err != nil {
 		t.Fatalf("mkdir ws: %v", err)
@@ -205,7 +206,7 @@ func TestEnsurePreservesUserEditsToClaudeDefaults(t *testing.T) {
 
 func TestRemoveDeletesContainer(t *testing.T) {
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-agent-aaaa1111bbbb"] = dockerx.FakeContainer{ID: "x", State: "running"}
+	fake.Containers["glovebox-agent-aaaa1111bbbb"] = dockerx.FakeContainer{ID: "x", State: string(container.StateRunning)}
 	if err := agent.Remove(context.Background(), fake, "aaaa1111bbbb"); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}

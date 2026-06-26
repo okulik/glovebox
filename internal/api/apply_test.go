@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/moby/moby/api/types/container"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/manifest"
 	"github.com/okulik/glovebox/internal/state"
@@ -112,7 +113,7 @@ func TestApply_WaitsForHealthyAndReturnsOK(t *testing.T) {
 
 func TestApply_AttachesAgentToStackNetworkOnSuccess(t *testing.T) {
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-agent-p1"] = dockerx.FakeContainer{ID: "id-glovebox-agent-p1", State: "running"}
+	fake.Containers["glovebox-agent-p1"] = dockerx.FakeContainer{ID: "id-glovebox-agent-p1", State: string(container.StateRunning)}
 	fake.HealthSeq = map[string][]string{"id-glovebox-stack-p1-redis": {"healthy"}}
 	h := newApplyHandler(applyDeps{
 		rules: defaultTestRules(), docker: fake, hostOnly: true,

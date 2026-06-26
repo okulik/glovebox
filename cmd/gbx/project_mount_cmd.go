@@ -30,7 +30,7 @@ func projectMountStateDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid)
+	dir := filepath.Join(config.GbxFromEnv().StateDir, config.ProjectsPath, pid)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create state dir for %s: %w", pid, err)
 	}
@@ -145,13 +145,13 @@ func (c *ProjectMountApplyCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	wsfile := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid, workspacePathFile)
+	wsfile := filepath.Join(config.GbxFromEnv().StateDir, config.ProjectsPath, pid, config.WorkspacePath)
 	data, err := os.ReadFile(wsfile)
 	if err != nil {
 		return fmt.Errorf("Project %s has no recorded workspace.", pid)
 	}
 	ws := strings.TrimRight(string(data), "\r\n")
-	cname := "glovebox-agent-" + pid
+	cname := config.ContainerAgentPrefix + pid
 	ctx := context.Background()
 	if err := hostDocker.ForceRemoveContainer(ctx, cname); err != nil {
 		return fmt.Errorf("failed to force remove container '%s': %w", cname, err)

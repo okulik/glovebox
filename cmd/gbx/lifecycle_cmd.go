@@ -18,11 +18,6 @@ import (
 	"github.com/okulik/glovebox/internal/stack"
 )
 
-// --- gbx up ---
-
-// UpCmd brings the singleton egress-proxy + socket-proxy + stack-controller
-// trio to a healthy steady state. Idempotent: no-op if egress-proxy is
-// already running. Replaces the operator's reach for `docker compose up`.
 type UpCmd struct{}
 
 func (c *UpCmd) Run(kctx *kong.Context) error {
@@ -38,8 +33,6 @@ func (c *UpCmd) Run(kctx *kong.Context) error {
 	fmt.Fprintln(kctx.Stdout, "Stack is up.")
 	return nil
 }
-
-// --- gbx start ---
 
 type ProjectStartCmd struct {
 	IDOrPrefix string `arg:"" optional:"" help:"Project pid or prefix; defaults to active."`
@@ -57,7 +50,7 @@ func (c *ProjectStartCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	wsfile := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid, workspacePathFile)
+	wsfile := filepath.Join(config.GbxFromEnv().StateDir, config.ProjectsPath, pid, config.WorkspacePath)
 	data, err := os.ReadFile(wsfile)
 	if err != nil {
 		return fmt.Errorf("Project %s has no recorded workspace.", pid)
@@ -71,8 +64,6 @@ func (c *ProjectStartCmd) Run(kctx *kong.Context) error {
 	return nil
 }
 
-// --- gbx stop ---
-
 type ProjectStopCmd struct {
 	IDOrPrefix string `arg:"" optional:"" help:"Project pid or prefix; defaults to active."`
 }
@@ -85,15 +76,13 @@ func (c *ProjectStopCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	cname := "glovebox-agent-" + pid
+	cname := config.ContainerAgentPrefix + pid
 	if err := hostDocker.StopContainer(context.Background(), cname); err != nil {
 		return err
 	}
 	fmt.Fprintf(kctx.Stdout, "Stopped %s.\n", cname)
 	return nil
 }
-
-// --- gbx restart ---
 
 type ProjectRestartCmd struct {
 	IDOrPrefix string `arg:"" optional:"" help:"Project pid or prefix; defaults to active."`
@@ -107,15 +96,13 @@ func (c *ProjectRestartCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	cname := "glovebox-agent-" + pid
+	cname := config.ContainerAgentPrefix + pid
 	if err := hostDocker.RestartContainer(context.Background(), cname); err != nil {
 		return err
 	}
 	fmt.Fprintf(kctx.Stdout, "Restarted %s.\n", cname)
 	return nil
 }
-
-// --- gbx rebuild [--all] ---
 
 type ProjectRebuildCmd struct {
 	IDOrPrefix string `arg:"" optional:"" help:"Project pid or prefix."`
@@ -153,7 +140,7 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 
 	var pids []string
 	if c.All {
-		projectsDir := filepath.Join(config.GbxFromEnv().StateDir, projectsPath)
+		projectsDir := filepath.Join(config.GbxFromEnv().StateDir, config.ProjectsPath)
 		entries, err := os.ReadDir(projectsDir)
 		if err != nil {
 			return fmt.Errorf("can't read '%s' folder: %w", projectsDir, err)
@@ -174,8 +161,8 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 	ctx := context.Background()
 	base := config.GbxFromEnv().AgentImage
 	for _, pid := range pids {
-		stateProjDir := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid)
-		wsfile := filepath.Join(stateProjDir, workspacePathFile)
+		stateProjDir := filepath.Join(config.GbxFromEnv().StateDir, config.ProjectsPath, pid)
+		wsfile := filepath.Join(stateProjDir, config.WorkspacePath)
 		data, err := os.ReadFile(wsfile)
 		if err != nil {
 			fmt.Fprintf(kctx.Stderr, "Skipping %s: no workspace recorded.\n", pid)
@@ -202,13 +189,11 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 			}
 		} else if hostDocker.ImageExists(ctx, derived) {
 			// No plugins remain: drop the stale derived image so the project
-			// cleanly reverts to the base on the next ensure. Best-effort -
-			// RemoveImage is itself best-effort (a missing/locked image is not
-			// fatal), so a failure here must not abort the rebuild.
+			// cleanly reverts to the base on the next ensure.
 			_ = hostDocker.RemoveImage(ctx, derived)
 		}
 
-		containerName := "glovebox-agent-" + pid
+		containerName := config.ContainerAgentPrefix + pid
 		if err := hostDocker.ForceRemoveContainer(ctx, containerName); err != nil {
 			return fmt.Errorf("can't force remove container '%s': %w", containerName, err)
 		}
@@ -223,8 +208,6 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 	return nil
 }
 
-// --- gbx state-size ---
-
 type ProjectStateSizeCmd struct {
 	IDOrPrefix string `arg:"" optional:"" help:"Project pid or prefix; defaults to active."`
 }
@@ -234,7 +217,7 @@ func (c *ProjectStateSizeCmd) Run(kctx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	projDir := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid)
+	projDir := filepath.Join(config.GbxFromEnv().StateDir, config.ProjectsPath, pid)
 	fmt.Fprintf(kctx.Stdout, "PROJECT %s\n", pid)
 	fmt.Fprintf(kctx.Stdout, "%-12s %s\n", "DIR", "SIZE")
 	for _, d := range []string{"claude", "codex", "opencode", "pi", "gemini", "aider", "hermes"} {
@@ -257,9 +240,7 @@ func (c *ProjectStateSizeCmd) Run(kctx *kong.Context) error {
 }
 
 // duHuman shells out to `du -sh` so the output keeps the suffix-suffixed
-// human format users expect (e.g. "120M"). The Go stdlib has no
-// human-readable size helper that matches; shelling out keeps the format
-// byte-compatible with the bash version.
+// human format users expect (e.g. "120M").
 func duHuman(path string) string {
 	out, err := exec.CommandContext(context.Background(), "du", "-sh", path).Output()
 	if err != nil {
@@ -273,9 +254,7 @@ func duHuman(path string) string {
 }
 
 // agentBuildSpec is the canonical dockerx.BuildSpec for the shared agent
-// image. Used by both `project rebuild` (always builds) and ensureAgentImage
-// (builds only when missing). The tag comes from gbxconfig so tests can
-// point at a throwaway image without untagging the operator's real one.
+// image.
 func agentBuildSpec(libexec string) dockerx.BuildSpec {
 	return dockerx.BuildSpec{
 		Tag:        config.GbxFromEnv().AgentImage,
@@ -289,10 +268,7 @@ func agentBuildSpec(libexec string) dockerx.BuildSpec {
 }
 
 // ensureAgentImage builds the configured agent image if it isn't present
-// locally. This is what makes `gbx new` work on a fresh install without
-// requiring the user to know about `gbx rebuild --all` first. The
-// image-inspect probe is sub-millisecond when the image exists, so adding
-// this to every agent-ensure path is essentially free.
+// locally.
 func ensureAgentImage(libexec string) error {
 	ctx := context.Background()
 	img := config.GbxFromEnv().AgentImage

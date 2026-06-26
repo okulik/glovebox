@@ -7,14 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/hostconfig"
 	"github.com/okulik/glovebox/internal/state"
 )
 
-// EnsureAgentFn is the signature for the agent-ensure callback injected into
-// New. Production wires this to a thin closure around agent.Ensure; tests
-// inject a stub.
+// EnsureAgentFn is the signature for the agent-ensure callback injected into New.
 type EnsureAgentFn func(ctx context.Context, dc dockerx.ControllerClient, pid, workspace, libexec, stateDir string) error
 
 // RemoveAgentFn mirrors EnsureAgentFn for the rm path.
@@ -61,9 +60,9 @@ func New(ctx context.Context, spec NewSpec) (NewResult, error) {
 	if err != nil {
 		return NewResult{}, fmt.Errorf("compute pid: %w", err)
 	}
-	stateDir := filepath.Join(spec.ConfigDir, "state")
-	projDir := filepath.Join(stateDir, "projects", pid)
-	wspath := filepath.Join(projDir, "workspace-path")
+	stateDir := filepath.Join(spec.ConfigDir, config.StatePath)
+	projDir := filepath.Join(stateDir, config.ProjectsPath, pid)
+	wspath := filepath.Join(projDir, config.WorkspacePath)
 
 	res := NewResult{PID: pid, WorkspaceAbs: abs}
 
@@ -86,10 +85,6 @@ func New(ctx context.Context, spec NewSpec) (NewResult, error) {
 
 	curPID, _ := state.ActivePID(spec.ConfigDir)
 	if curPID == "" {
-		// Honor an immediately preceding `project rm` that demoted this same
-		// pid: don't auto-restore. Any other pid (or no marker) → auto-default
-		// as before. The marker is consumed on read so a follow-up
-		// `project new` with a different path can still take the default.
 		demoted, _ := state.ConsumeRemovedDefault(spec.ConfigDir)
 		if demoted != pid {
 			if err := state.WriteActive(spec.ConfigDir, pid, abs); err != nil {
@@ -103,12 +98,12 @@ func New(ctx context.Context, spec NewSpec) (NewResult, error) {
 
 // Use ports cmd_project_use: resolve prefix, write active-project.
 func Use(configDir, prefix string) error {
-	stateDir := filepath.Join(configDir, "state")
+	stateDir := filepath.Join(configDir, config.StatePath)
 	pid, err := Resolve(stateDir, prefix)
 	if err != nil {
 		return err
 	}
-	wspath := filepath.Join(stateDir, "projects", pid, "workspace-path")
+	wspath := filepath.Join(stateDir, config.ProjectsPath, pid, config.WorkspacePath)
 	ws, err := os.ReadFile(wspath)
 	if err != nil {
 		return fmt.Errorf("project %s has no recorded workspace", pid)
@@ -117,9 +112,6 @@ func Use(configDir, prefix string) error {
 	if err := state.WriteActive(configDir, pid, wsStr); err != nil {
 		return err
 	}
-	// An explicit user-set default supersedes any earlier remove-as-default
-	// intent; drop the marker so future `project new` invocations behave
-	// normally.
 	_ = state.ClearRemovedDefault(configDir)
 	return nil
 }
@@ -131,23 +123,17 @@ func stringTrimTrailingNewline(s string) string {
 	return s
 }
 
-// RemoveSpec carries the inputs to Remove.
 type RemoveSpec struct {
 	Docker      dockerx.ControllerClient
 	Confirm     func() bool
 	RemoveAgent RemoveAgentFn
 	Prefix      string
 	ConfigDir   string
-	// DeleteState removes state/projects/<pid>/ along with the container.
-	// Default behavior (false) preserves the dir so a future `gbx new` on
-	// the same workspace path picks up the existing agent state.
 	DeleteState bool
 }
 
-// Remove ports cmd_project_rm: resolve, confirm, container rm -f, optional
-// state removal, clear active-project if it pointed at the removed pid.
 func Remove(ctx context.Context, spec RemoveSpec) error {
-	stateDir := filepath.Join(spec.ConfigDir, "state")
+	stateDir := filepath.Join(spec.ConfigDir, config.StatePath)
 	pid, err := Resolve(stateDir, spec.Prefix)
 	if err != nil {
 		return err
@@ -161,15 +147,13 @@ func Remove(ctx context.Context, spec RemoveSpec) error {
 		}
 	}
 	if spec.DeleteState {
-		if err := os.RemoveAll(filepath.Join(stateDir, "projects", pid)); err != nil {
+		if err := os.RemoveAll(filepath.Join(stateDir, config.ProjectsPath, pid)); err != nil {
 			return fmt.Errorf("remove state: %w", err)
 		}
 	}
 	curPID, _ := state.ActivePID(spec.ConfigDir)
 	if curPID == pid {
-		_ = os.Remove(filepath.Join(spec.ConfigDir, "active-project"))
-		// Record the explicit demote so a subsequent `project new` with the
-		// same path doesn't silently re-default this pid.
+		_ = os.Remove(filepath.Join(spec.ConfigDir, config.ActiveProjectPath))
 		_ = state.MarkRemovedDefault(spec.ConfigDir, pid)
 	}
 	return nil

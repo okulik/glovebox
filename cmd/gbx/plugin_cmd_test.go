@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/config"
 )
 
 // seedProject creates a minimal project state dir and marks it active so
@@ -12,14 +14,14 @@ import (
 func seedProject(t *testing.T, cfg string) string {
 	t.Helper()
 	pid := "abc123def456"
-	projDir := filepath.Join(cfg, "state", "projects", pid)
+	projDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid)
 	if err := os.MkdirAll(projDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(projDir, "workspace-path"), []byte("/tmp/ws"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projDir, config.WorkspacePath), []byte("/tmp/ws"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cfg, "active-project"), []byte(pid), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(cfg, config.ActiveProjectPath), []byte(pid), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return pid
@@ -28,7 +30,7 @@ func seedProject(t *testing.T, cfg string) string {
 func TestPluginAddStoresFragment(t *testing.T) {
 	cfg := t.TempDir()
 	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
 	pid := seedProject(t, cfg)
 
 	prev := launchEditor
@@ -44,7 +46,7 @@ func TestPluginAddStoresFragment(t *testing.T) {
 	if !strings.Contains(stdout, "Run `gbx rebuild`") {
 		t.Errorf("missing rebuild hint: %q", stdout)
 	}
-	pluginsDir := filepath.Join(cfg, "state", "projects", pid, "plugins")
+	pluginsDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid, config.PluginsPath)
 	entries, err := os.ReadDir(pluginsDir)
 	if err != nil {
 		t.Fatal(err)
@@ -63,13 +65,13 @@ func TestPluginAddStoresFragment(t *testing.T) {
 func TestPluginAddRejectsMissingDescriptionAndKeepsDraft(t *testing.T) {
 	cfg := t.TempDir()
 	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
 	pid := seedProject(t, cfg)
 
 	prev := launchEditor
 	t.Cleanup(func() { launchEditor = prev })
 	launchEditor = func(path string) error {
-		return os.WriteFile(path, []byte("RUN true\n"), 0o644) // no description
+		return os.WriteFile(path, []byte("RUN true\n"), 0o644)
 	}
 
 	_, stderr, code := runCLI(t, "plugin", "add")
@@ -84,7 +86,7 @@ func TestPluginAddRejectsMissingDescriptionAndKeepsDraft(t *testing.T) {
 	if !strings.Contains(stderr, "Draft kept at") {
 		t.Errorf("stderr should report the kept draft path: %q", stderr)
 	}
-	pluginsDir := filepath.Join(cfg, "state", "projects", pid, "plugins")
+	pluginsDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid, config.PluginsPath)
 	entries, err := os.ReadDir(pluginsDir)
 	if err != nil {
 		t.Fatal(err)
@@ -103,10 +105,10 @@ func TestPluginAddRejectsMissingDescriptionAndKeepsDraft(t *testing.T) {
 func TestPluginLsAndRm(t *testing.T) {
 	cfg := t.TempDir()
 	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
 	pid := seedProject(t, cfg)
 
-	pluginsDir := filepath.Join(cfg, "state", "projects", pid, "plugins")
+	pluginsDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid, config.PluginsPath)
 	if err := os.MkdirAll(pluginsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

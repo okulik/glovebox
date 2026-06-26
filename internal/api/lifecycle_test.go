@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/moby/moby/api/types/container"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/manifest"
 	"github.com/okulik/glovebox/internal/state"
@@ -53,7 +54,7 @@ func TestListProjects_RejectsFromInternal(t *testing.T) {
 
 func TestDown_StopsServices_KeepsVolumes(t *testing.T) {
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-stack-p1-redis"] = dockerx.FakeContainer{ID: "id-redis", State: "running", Health: "healthy"}
+	fake.Containers["glovebox-stack-p1-redis"] = dockerx.FakeContainer{ID: "id-redis", State: string(container.StateRunning), Health: "healthy"}
 	fake.Volumes["glovebox-stack-p1-redis-data"] = true
 	h := newDownHandler(applyDeps{docker: fake, hostOnly: true})
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/projects/p1/down", nil)
@@ -62,7 +63,7 @@ func TestDown_StopsServices_KeepsVolumes(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d", w.Code)
 	}
-	if fake.Containers["glovebox-stack-p1-redis"].State == "running" {
+	if fake.Containers["glovebox-stack-p1-redis"].State == string(container.StateRunning) {
 		t.Errorf("redis not stopped")
 	}
 	if !fake.Volumes["glovebox-stack-p1-redis-data"] {
@@ -82,7 +83,7 @@ func TestDestroy_RequiresConfirm(t *testing.T) {
 
 func TestDestroy_RemovesEverything(t *testing.T) {
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-stack-p1-redis"] = dockerx.FakeContainer{ID: "id1", State: "running"}
+	fake.Containers["glovebox-stack-p1-redis"] = dockerx.FakeContainer{ID: "id1", State: string(container.StateRunning)}
 	fake.Volumes["glovebox-stack-p1-redis-data"] = true
 	fake.Networks["glovebox-stack-p1"] = true
 	h := newDestroyHandler(applyDeps{docker: fake, hostOnly: true})
@@ -99,7 +100,7 @@ func TestDestroy_RemovesEverything(t *testing.T) {
 
 func TestStatus_RunningServicesReadsAsReady(t *testing.T) {
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-stack-p1-redis"] = dockerx.FakeContainer{ID: "id1", State: "running", Health: "healthy"}
+	fake.Containers["glovebox-stack-p1-redis"] = dockerx.FakeContainer{ID: "id1", State: string(container.StateRunning), Health: "healthy"}
 	h := newStatusHandler(applyDeps{docker: fake})
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/projects/p1/status", nil)
 	w := httptest.NewRecorder()

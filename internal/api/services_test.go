@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/moby/moby/api/types/container"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/manifest"
 	"github.com/okulik/glovebox/internal/state"
@@ -37,7 +38,7 @@ func TestServiceStart_RejectsUndeclaredService(t *testing.T) {
 
 func TestServiceReset_WipesVolumesAndRestarts(t *testing.T) {
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-stack-pReset-redis"] = dockerx.FakeContainer{ID: "id1", State: "running"}
+	fake.Containers["glovebox-stack-pReset-redis"] = dockerx.FakeContainer{ID: "id1", State: string(container.StateRunning)}
 	fake.Volumes["glovebox-stack-pReset-redis-data"] = true
 	store := newTestStore(t)
 	_ = store.Save("pReset", &manifest.Manifest{
@@ -63,7 +64,7 @@ func TestServiceReset_WipesVolumesAndRestarts(t *testing.T) {
 func TestServiceReset_LeavesVolumesPresentIfRecreateFails(t *testing.T) {
 	// Setup: a service that is currently up, plus a manifest in the store.
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-stack-pBust-redis"] = dockerx.FakeContainer{ID: "id-old", State: "running"}
+	fake.Containers["glovebox-stack-pBust-redis"] = dockerx.FakeContainer{ID: "id-old", State: string(container.StateRunning)}
 	fake.Volumes["glovebox-stack-pBust-redis-data"] = true
 	// Force CreateContainer to fail so we exercise the failure path.
 	fake.CreateErr["glovebox-stack-pBust-redis"] = errors.New("synthetic create failure")
@@ -129,7 +130,7 @@ func TestLogs_404WhenNoManifest(t *testing.T) {
 
 func TestServiceStart_StartsDeclaredService(t *testing.T) {
 	fake := dockerx.NewFake()
-	fake.Containers["glovebox-stack-pStart-redis"] = dockerx.FakeContainer{ID: "id1", State: "exited"}
+	fake.Containers["glovebox-stack-pStart-redis"] = dockerx.FakeContainer{ID: "id1", State: string(container.StateExited)}
 	store := newTestStore(t)
 	deps := applyDeps{docker: fake, state: store}
 	_ = store.Save("pStart", &manifest.Manifest{Version: 1, Services: map[string]manifest.Service{"redis": {Image: "redis:7-alpine"}}}, "applied", "")
@@ -140,7 +141,7 @@ func TestServiceStart_StartsDeclaredService(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status %d body %s", w.Code, w.Body.String())
 	}
-	if fake.Containers["glovebox-stack-pStart-redis"].State != "running" {
+	if fake.Containers["glovebox-stack-pStart-redis"].State != string(container.StateRunning) {
 		t.Errorf("not running: %+v", fake.Containers)
 	}
 }

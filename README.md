@@ -32,10 +32,7 @@ manipulate something dangerous, but it can't reach out.
 ## Prerequisites
 
 macOS or Linux with a Docker-compatible runtime installed and running. Any
-of these work; `gbx` talks to the Docker Engine API directly via the moby
-SDK (the `docker build` shell-out for first-time image builds is the only
-remaining CLI dependency), so anything that exposes a Docker socket is fine:
-
+of these work:
 - [OrbStack](https://orbstack.dev) - recommended on macOS; what the test
   suite is exercised against.
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS or Linux).
@@ -43,11 +40,6 @@ remaining CLI dependency), so anything that exposes a Docker socket is fine:
 - [Rancher Desktop](https://rancherdesktop.io) with the `dockerd (moby)` engine.
 - Native [Docker Engine](https://docs.docker.com/engine/install/) on Linux
   (rootful; the daemon socket at `/var/run/docker.sock`).
-
-The agent container runs as your host user's UID/GID so bind-mounted files
-stay owned by you. On macOS the Docker file-sharing layer maps ownership
-automatically; on native Linux the match is exact, derived from `id -u` /
-`id -g` at build and run time.
 
 ## Install
 
@@ -62,16 +54,19 @@ brew install glovebox
 `brew tap okulik/glovebox` resolves to the
 [`okulik/homebrew-glovebox`](https://github.com/okulik/homebrew-glovebox)
 tap repository (Homebrew inserts the `homebrew-` prefix automatically).
+
 `brew install glovebox` then resolves to the formula from that tap as long
-as no other tapped formula shares the name (homebrew-core has no
+as no other tapped formula shares the name (homebrew-core has at the moment no other
 `glovebox`). The `brew trust` step is Homebrew 5.x's opt-in for third-party
 taps; without it `brew install` runs but doesn't link a `gbx` binary on
 PATH.
 
+The Homebrew install path actuall builds from source, but pulls in Go
+automatically as a build-time dependency, so you don't install it yourself.
+
 ### From source
 
-Requires Go. (The Homebrew path also builds from source, but pulls in Go
-automatically as a build-time dependency, so you don't install it yourself.)
+Requires Go.
 
 ```bash
 git clone https://github.com/okulik/glovebox ~/dev/glovebox
@@ -82,7 +77,18 @@ make build      # compiles bin/gbx
 Put `bin/` on your PATH so you can drop the `bin/` prefix:
 
 ```bash
+# bash
 echo 'export PATH="$HOME/dev/glovebox/bin:$PATH"' >> ~/.bashrc
+```
+
+```zsh
+# zsh
+echo 'export PATH="$HOME/dev/glovebox/bin:$PATH"' >> ~/.zshrc
+```
+
+```bash
+# fish
+echo 'set -gx PATH $HOME/dev/glovebox/bin $PATH' >> ~/.config/fish/config.fish
 ```
 
 ## Quickstart
@@ -93,12 +99,13 @@ gbx new ~/projects/my-app         # bootstraps ~/.config/glovebox (seeds .env
                                   # image on first run, creates the agent,
                                   # sets it as default (~5 min on first run)
 $EDITOR ~/.config/glovebox/.env   # set the provider keys you have
-gbx run claude                    # interactive Claude Code session
+gbx run pi                        # interactive Pi session
 ```
 
 Any of the bundled agents works the same way:
 
 ```bash
+gbx run claude
 gbx run codex
 gbx run opencode
 gbx run pi
@@ -114,7 +121,7 @@ Configuration and per-agent state live under `~/.config/glovebox/`.
 ## Commands
 
 `gbx` is structured as `gbx [global-flags] <command> [subcommand] [args]`.
-Run `gbx help` for an inline summary; this section is the reference.
+Run `gbx help` for an inline summary.
 
 **Global flags**
 
@@ -131,7 +138,7 @@ container. The project id (`pid`) is the first 12 hex chars of
 `sha1(realpath(workspace))`. State lives under
 `~/.config/glovebox/state/projects/<pid>/`. Most of the commands below
 target the default project (set by `gbx use`); pass an id, a prefix, or
-use the global `-p` flag to target another.
+use the global `-p` flag to target a non-default one.
 
 | Command                                                       | Purpose                                                                  |
 |---------------------------------------------------------------|--------------------------------------------------------------------------|
@@ -151,9 +158,8 @@ use the global `-p` flag to target another.
 
 By default the only host directory mounted into the agent is the workspace
 (`/workspace`). `mount` lets you attach additional host directories - a
-sibling library, a shared docs folder, a scratch directory. The set is
-persisted at `~/.config/glovebox/state/projects/<pid>/mounts.txt`, one
-`host:container:mode` per line.
+sibling library, a shared docs folder, a scratch directory. The set of all
+mounted directories is persisted at `~/.config/glovebox/state/projects/<pid>/mounts.txt`, one `host:container:mode` per line.
 
 | Subcommand | Purpose |
 |---|---|
@@ -175,7 +181,7 @@ gbx run -- ls /mnt/docs /mnt/shared-lib
 ```
 
 Container paths claimed by the runtime (`/workspace`, `/home/gbx/.claude`,
-`/home/gbx/.npm`, …) are refused to avoid shadowing agent state. Host paths
+`/home/gbx/.npm`, ...) are refused to avoid shadowing agent state. Host paths
 are symlink-resolved so the on-disk record matches what Docker actually
 mounts. Changes take effect on the next `gbx mount apply` (or the next
 `gbx rebuild` / `gbx new`).
@@ -191,10 +197,10 @@ gbx plugin add            # opens $EDITOR with an instructional template
 gbx plugin ls             # list this project's plugins
 gbx plugin edit <id>      # edit a fragment
 gbx plugin rm <id>        # remove a fragment
-gbx rebuild               # apply: builds glovebox-agent-<pid>:local and recreates the container
+gbx rebuild               # builds glovebox-agent-<pid>:local and recreates the container
 ```
 
-Each fragment must start with a description line:
+Each fragment must start with a comment `# gbx:description:` followed with a description:
 
 ```dockerfile
 # gbx:description: install httpie and ripgrep

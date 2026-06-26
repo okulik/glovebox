@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/okulik/glovebox/internal/agent"
+	"github.com/okulik/glovebox/internal/config"
 )
 
 func defaultSpec() agent.CreateSpec {
@@ -63,8 +64,8 @@ func TestBuildCreateConfigBasicShape(t *testing.T) {
 	if !slices.Contains(hostCfg.SecurityOpt, "no-new-privileges:true") {
 		t.Fatalf("SecurityOpt missing no-new-privileges: %v", hostCfg.SecurityOpt)
 	}
-	if _, ok := netCfg.EndpointsConfig[agent.AgentNetwork]; !ok {
-		t.Fatalf("EndpointsConfig missing %s: %v", agent.AgentNetwork, netCfg.EndpointsConfig)
+	if _, ok := netCfg.EndpointsConfig[config.NetworkInternal]; !ok {
+		t.Fatalf("EndpointsConfig missing %s: %v", config.NetworkInternal, netCfg.EndpointsConfig)
 	}
 }
 

@@ -23,26 +23,9 @@ import (
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
-// Networks are named plainly now that compose's `<project>_` prefix is gone.
-// Upgrading from a compose-era deployment requires `gbx rebuild --all` so
-// existing agent containers (created against `glovebox_glovebox-internal`)
-// get re-attached to the new `glovebox-internal`.
 const (
-	NetworkInternal = "glovebox-internal"
-	NetworkControl  = "glovebox-control"
-	NetworkEgress   = "glovebox-egress"
-
-	ContainerEgressProxy = "glovebox-egress-proxy"
-	ContainerSocketProxy = "glovebox-socket-proxy"
-	ContainerController  = "glovebox-stack-controller"
-
-	ImageEgressProxy = "ubuntu/squid:latest"
-	ImageSocketProxy = "tecnativa/docker-socket-proxy:0.3.0"
-	ImageController  = "glovebox-stack-controller:local"
-
 	// defaultHealthTimeout bounds how long Up waits for each healthchecked
-	// container to reach "healthy". 60s comfortably covers squid's slow boot
-	// on first start and a cold image pull-extract on socket-proxy.
+	// container to reach "healthy".
 	defaultHealthTimeout = 60 * time.Second
 )
 
@@ -70,27 +53,27 @@ func FromEnv(host dockerx.HostClient, client dockerx.ControllerClient) (*Stack, 
 	}, nil
 }
 
-// IsRunning reports whether the egress-proxy container is in the "running"
+// IsRunning reports whether the egress-proxy container is in the string(container.StateRunning)
 // state - used as a cheap probe to decide whether Up needs to do work.
 func (s *Stack) IsRunning(ctx context.Context) (bool, error) {
-	_, state, err := s.Client.ContainerByName(ctx, ContainerEgressProxy)
+	_, state, err := s.Client.ContainerByName(ctx, config.ContainerEgressProxy)
 	if err != nil {
 		return false, err
 	}
-	return state == "running", nil
+	return state == string(container.StateRunning), nil
 }
 
 // RestartProxy restarts the egress-proxy. This is what `gbx allow` runs
 // after appending a new domain to the allowlist so squid re-reads the file.
 func (s *Stack) RestartProxy(ctx context.Context) error {
-	return s.Host.RestartContainer(ctx, ContainerEgressProxy)
+	return s.Host.RestartContainer(ctx, config.ContainerEgressProxy)
 }
 
 // ProxyLogs streams the squid access log to the caller's terminal. Mirrors
 // the previous `compose exec egress-proxy tail -F ...` UX.
 func (s *Stack) ProxyLogs(ctx context.Context) error {
 	return s.Host.Exec(ctx, dockerx.ExecSpec{
-		Container: ContainerEgressProxy,
+		Container: config.ContainerEgressProxy,
 		Argv:      []string{"tail", "-F", "/var/log/squid/access.log"},
 	})
 }
@@ -104,7 +87,7 @@ const controllerLogTail = 200
 // image is distroless (no shell, no tail), so logs come through the Engine
 // API instead.
 func (s *Stack) ControllerLogs(ctx context.Context, w io.Writer) error {
-	return s.Host.ContainerLogs(ctx, ContainerController, controllerLogTail, true, w, w)
+	return s.Host.ContainerLogs(ctx, config.ContainerStackController, controllerLogTail, true, w, w)
 }
 
 // Up brings the singleton stack to a healthy steady state: networks exist,
@@ -120,22 +103,22 @@ func (s *Stack) Up(ctx context.Context, w io.Writer) error {
 		name     string
 		internal bool
 	}{
-		{NetworkInternal, true},
-		{NetworkControl, true},
-		{NetworkEgress, false},
+		{config.NetworkInternal, true},
+		{config.NetworkControl, true},
+		{config.NetworkEgress, false},
 	} {
 		if err := s.Client.EnsureNetwork(ctx, n.name, n.internal); err != nil {
 			return fmt.Errorf("ensure network %s: %w", n.name, err)
 		}
 	}
 
-	if !s.Host.ImageExists(ctx, ImageController) {
+	if !s.Host.ImageExists(ctx, config.ImageController) {
 		fmt.Fprintln(w, "Building glovebox-stack-controller:local (one-time, ~30s)...")
 		if err := s.buildController(ctx, w); err != nil {
 			return fmt.Errorf("build stack-controller image: %w", err)
 		}
 	}
-	for _, img := range []string{ImageSocketProxy, ImageEgressProxy} {
+	for _, img := range []string{config.ImageSocketProxy, config.ImageEgressProxy} {
 		if s.Host.ImageExists(ctx, img) {
 			continue
 		}
@@ -151,13 +134,13 @@ func (s *Stack) Up(ctx context.Context, w io.Writer) error {
 	if err := s.ensureSocketProxy(ctx); err != nil {
 		return err
 	}
-	if err := s.waitHealthy(ctx, ContainerSocketProxy, defaultHealthTimeout); err != nil {
+	if err := s.waitHealthy(ctx, config.ContainerSocketProxy, defaultHealthTimeout); err != nil {
 		return err
 	}
 	if err := s.ensureEgressProxy(ctx); err != nil {
 		return err
 	}
-	if err := s.waitHealthy(ctx, ContainerEgressProxy, defaultHealthTimeout); err != nil {
+	if err := s.waitHealthy(ctx, config.ContainerEgressProxy, defaultHealthTimeout); err != nil {
 		return err
 	}
 	// stack-controller has no healthcheck; just create+start.
@@ -166,7 +149,7 @@ func (s *Stack) Up(ctx context.Context, w io.Writer) error {
 
 func (s *Stack) buildController(ctx context.Context, w io.Writer) error {
 	return s.Host.BuildImage(ctx, dockerx.BuildSpec{
-		Tag:        ImageController,
+		Tag:        config.ImageController,
 		Dockerfile: filepath.Join(s.Libexec, "docker", "controller.Dockerfile"),
 		Context:    s.Libexec,
 		Out:        w,
@@ -175,20 +158,16 @@ func (s *Stack) buildController(ctx context.Context, w io.Writer) error {
 }
 
 // RebuildController force-rebuilds the stack-controller image from current
-// source and recreates its container. Unlike Up - which skips the build when
-// the image already exists - this always rebuilds, so new controller code
-// (e.g. added API routes) is picked up. The container is removed first so the
-// subsequent Up recreates it from the freshly built image; Up also re-ensures
-// the networks and proxies, leaving the singleton stack healthy.
+// source and recreates its container.
 func (s *Stack) RebuildController(ctx context.Context, w io.Writer) error {
 	if w == nil {
 		w = os.Stderr
 	}
 	fmt.Fprintln(w, "Removing the stack-controller container...")
-	if err := s.Host.ForceRemoveContainer(ctx, ContainerController); err != nil {
-		return fmt.Errorf("remove %s: %w", ContainerController, err)
+	if err := s.Host.ForceRemoveContainer(ctx, config.ContainerStackController); err != nil {
+		return fmt.Errorf("remove %s: %w", config.ContainerStackController, err)
 	}
-	fmt.Fprintf(w, "Rebuilding %s from source...\n", ImageController)
+	fmt.Fprintf(w, "Rebuilding %s from source...\n", config.ImageController)
 	if err := s.buildController(ctx, w); err != nil {
 		return fmt.Errorf("build stack-controller image: %w", err)
 	}
@@ -196,9 +175,6 @@ func (s *Stack) RebuildController(ctx context.Context, w io.Writer) error {
 }
 
 // waitHealthy polls a container's HealthState until "healthy" or timeout.
-// An empty health string is treated as healthy - that matches the daemon's
-// behavior for containers without a healthcheck and keeps tests against
-// dockerx.Fake (which returns "" by default) deterministic.
 func (s *Stack) waitHealthy(ctx context.Context, name string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for {
@@ -230,52 +206,51 @@ func (s *Stack) waitHealthy(ctx context.Context, name string, timeout time.Durat
 }
 
 func (s *Stack) ensureSocketProxy(ctx context.Context) error {
-	id, state, err := s.Client.ContainerByName(ctx, ContainerSocketProxy)
+	id, state, err := s.Client.ContainerByName(ctx, config.ContainerSocketProxy)
 	if err != nil {
 		return err
 	}
 	if id == "" {
 		cfg, hostCfg, netCfg := socketProxyConfig()
-		if _, err := s.Client.CreateContainerRaw(ctx, ContainerSocketProxy, cfg, hostCfg, netCfg); err != nil {
-			return fmt.Errorf("create %s: %w", ContainerSocketProxy, err)
+		if _, err := s.Client.CreateContainerRaw(ctx, config.ContainerSocketProxy, cfg, hostCfg, netCfg); err != nil {
+			return fmt.Errorf("create %s: %w", config.ContainerSocketProxy, err)
 		}
 	}
-	if state == "running" {
+	if state == string(container.StateRunning) {
 		return nil
 	}
-	return s.Client.StartContainer(ctx, ContainerSocketProxy)
+	return s.Client.StartContainer(ctx, config.ContainerSocketProxy)
 }
 
 func (s *Stack) ensureEgressProxy(ctx context.Context) error {
-	id, state, err := s.Client.ContainerByName(ctx, ContainerEgressProxy)
+	id, state, err := s.Client.ContainerByName(ctx, config.ContainerEgressProxy)
 	if err != nil {
 		return err
 	}
 	if id == "" {
 		cfg, hostCfg, netCfg := s.egressProxyConfig()
-		if _, err := s.Client.CreateContainerRaw(ctx, ContainerEgressProxy, cfg, hostCfg, netCfg); err != nil {
-			return fmt.Errorf("create %s: %w", ContainerEgressProxy, err)
+		if _, err := s.Client.CreateContainerRaw(ctx, config.ContainerEgressProxy, cfg, hostCfg, netCfg); err != nil {
+			return fmt.Errorf("create %s: %w", config.ContainerEgressProxy, err)
 		}
 		// Egress-proxy needs a second network for outbound traffic; the
 		// primary (internal) is already wired by NetworkingConfig at create.
-		if err := s.Client.ConnectNetwork(ctx, ContainerEgressProxy, NetworkEgress); err != nil {
-			return fmt.Errorf("attach %s to %s: %w", ContainerEgressProxy, NetworkEgress, err)
+		if err := s.Client.ConnectNetwork(ctx, config.ContainerEgressProxy, config.NetworkEgress); err != nil {
+			return fmt.Errorf("attach %s to %s: %w", config.ContainerEgressProxy, config.NetworkEgress, err)
 		}
 	}
-	if state == "running" {
+	if state == string(container.StateRunning) {
 		return nil
 	}
-	return s.Client.StartContainer(ctx, ContainerEgressProxy)
+	return s.Client.StartContainer(ctx, config.ContainerEgressProxy)
 }
 
 func (s *Stack) ensureController(ctx context.Context) error {
 	// Bind-target dir for /state must exist on the host or the bind mount
-	// fails at create. Compose let docker create the dir; the engine API
-	// doesn't, so we do it explicitly.
+	// fails at create.
 	if err := os.MkdirAll(filepath.Join(s.StateDir, "controller"), 0o755); err != nil {
 		return fmt.Errorf("create state/controller: %w", err)
 	}
-	id, state, err := s.Client.ContainerByName(ctx, ContainerController)
+	id, state, err := s.Client.ContainerByName(ctx, config.ContainerStackController)
 	if err != nil {
 		return err
 	}
@@ -284,26 +259,26 @@ func (s *Stack) ensureController(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if _, err := s.Client.CreateContainerRaw(ctx, ContainerController, cfg, hostCfg, netCfg); err != nil {
-			return fmt.Errorf("create %s: %w", ContainerController, err)
+		if _, err := s.Client.CreateContainerRaw(ctx, config.ContainerStackController, cfg, hostCfg, netCfg); err != nil {
+			return fmt.Errorf("create %s: %w", config.ContainerStackController, err)
 		}
 		// Controller needs both glovebox-control (to reach socket-proxy)
 		// and glovebox-egress (to pull project images from public registries).
-		for _, n := range []string{NetworkControl, NetworkEgress} {
-			if err := s.Client.ConnectNetwork(ctx, ContainerController, n); err != nil {
-				return fmt.Errorf("attach %s to %s: %w", ContainerController, n, err)
+		for _, n := range []string{config.NetworkControl, config.NetworkEgress} {
+			if err := s.Client.ConnectNetwork(ctx, config.ContainerStackController, n); err != nil {
+				return fmt.Errorf("attach %s to %s: %w", config.ContainerStackController, n, err)
 			}
 		}
 	}
-	if state == "running" {
+	if state == string(container.StateRunning) {
 		return nil
 	}
-	return s.Client.StartContainer(ctx, ContainerController)
+	return s.Client.StartContainer(ctx, config.ContainerStackController)
 }
 
 func socketProxyConfig() (*container.Config, *container.HostConfig, *network.NetworkingConfig) {
 	cfg := &container.Config{
-		Image:    ImageSocketProxy,
+		Image:    config.ImageSocketProxy,
 		Hostname: "socket-proxy",
 		Env: []string{
 			"CONTAINERS=1", "NETWORKS=1", "VOLUMES=1", "IMAGES=1", "VERSION=1",
@@ -324,7 +299,7 @@ func socketProxyConfig() (*container.Config, *container.HostConfig, *network.Net
 	}
 	netCfg := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			NetworkControl: {Aliases: []string{"socket-proxy"}},
+			config.NetworkControl: {Aliases: []string{"socket-proxy"}},
 		},
 	}
 	return cfg, hostCfg, netCfg
@@ -332,7 +307,7 @@ func socketProxyConfig() (*container.Config, *container.HostConfig, *network.Net
 
 func (s *Stack) egressProxyConfig() (*container.Config, *container.HostConfig, *network.NetworkingConfig) {
 	cfg := &container.Config{
-		Image:    ImageEgressProxy,
+		Image:    config.ImageEgressProxy,
 		Hostname: "proxy",
 		// `squid -k check` confirms the running squid process via its PID file
 		// without opening a connection to the proxy port. The previous
@@ -358,7 +333,7 @@ func (s *Stack) egressProxyConfig() (*container.Config, *container.HostConfig, *
 	}
 	netCfg := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			NetworkInternal: {Aliases: []string{"proxy"}},
+			config.NetworkInternal: {Aliases: []string{"proxy"}},
 		},
 	}
 	return cfg, hostCfg, netCfg
@@ -385,7 +360,7 @@ func (s *Stack) controllerConfig() (*container.Config, *container.HostConfig, *n
 	}
 
 	cfg := &container.Config{
-		Image:    ImageController,
+		Image:    config.ImageController,
 		Hostname: "stack-controller",
 		Env: []string{
 			"CONTROLLER_DOCKER_HOST=" + ccfg.DockerHost,
@@ -420,7 +395,7 @@ func (s *Stack) controllerConfig() (*container.Config, *container.HostConfig, *n
 	}
 	netCfg := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
-			NetworkInternal: {Aliases: []string{"stack-controller"}},
+			config.NetworkInternal: {Aliases: []string{"stack-controller"}},
 		},
 	}
 	return cfg, hostCfg, netCfg, nil

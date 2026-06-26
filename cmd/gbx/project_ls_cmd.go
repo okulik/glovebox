@@ -130,8 +130,8 @@ func renderJSON(w io.Writer, activePID string, projects []project.Project, glove
 // singleton stack (egress-proxy, socket-proxy, stack-controller) doesn't
 // match either pattern and is excluded by construction.
 func containersForProject(pool []dockerx.ContainerSummary, pid string) []dockerx.ContainerSummary {
-	agentName := "glovebox-agent-" + pid
-	stackPrefix := "glovebox-stack-" + pid + "-"
+	agentName := config.ContainerAgentPrefix + pid
+	stackPrefix := config.ContainerStackPrefix + pid + "-"
 	var mine []dockerx.ContainerSummary
 	for _, c := range pool {
 		if c.Name == agentName || strings.HasPrefix(c.Name, stackPrefix) {
@@ -280,10 +280,10 @@ func renderProjectPID(active bool, pid string, sty styler) string {
 // name: glovebox-agent-<pid> -> "agent", glovebox-stack-<pid>-<svc> -> "<svc>".
 // Names that match neither pattern are returned unchanged.
 func shortContainerName(name, pid string) string {
-	if name == "glovebox-agent-"+pid {
+	if name == config.ContainerAgentPrefix+pid {
 		return "agent"
 	}
-	if s, ok := strings.CutPrefix(name, "glovebox-stack-"+pid+"-"); ok {
+	if s, ok := strings.CutPrefix(name, config.ContainerStackPrefix+pid+"-"); ok {
 		return s
 	}
 	return name

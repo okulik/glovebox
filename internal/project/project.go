@@ -1,6 +1,4 @@
-// Package project owns the host-side per-project lifecycle: enumeration,
-// creation, default-project switching, and removal. Each function is the
-// authoritative Go implementation of one bash cmd_project_* helper.
+// Package project owns the host-side per-project lifecycle:.
 package project
 
 import (
@@ -10,8 +8,14 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
+)
+
+const (
+	listTimeout = time.Second * 30
 )
 
 // Project is a single per-pid project record.
@@ -24,13 +28,9 @@ type Project struct {
 }
 
 // List enumerates state/projects/<pid>/ entries and queries docker for each
-// pid's agent + stack status via the supplied dockerx.Client. activePID is the
-// current default pid (empty string if no default); the matching Project has
-// Active=true.
-//
-// The slice is sorted by pid (ascending) so output is deterministic.
+// pid's agent + stack status.
 func List(stateDir, activePID string, dc dockerx.ControllerClient) ([]Project, error) {
-	projectsDir := filepath.Join(stateDir, "projects")
+	projectsDir := filepath.Join(stateDir, config.ProjectsPath)
 	entries, err := os.ReadDir(projectsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -38,7 +38,10 @@ func List(stateDir, activePID string, dc dockerx.ControllerClient) ([]Project, e
 		}
 		return nil, fmt.Errorf("read projects dir: %w", err)
 	}
-	ctx := context.Background()
+
+	ctx, cancel := context.WithTimeout(context.Background(), listTimeout)
+	defer cancel()
+
 	var out []Project
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -58,14 +61,16 @@ func List(stateDir, activePID string, dc dockerx.ControllerClient) ([]Project, e
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].PID < out[j].PID })
+
 	return out, nil
 }
 
 func readWorkspacePath(projectsDir, pid string) (string, error) {
-	data, err := os.ReadFile(filepath.Join(projectsDir, pid, "workspace-path"))
+	data, err := os.ReadFile(filepath.Join(projectsDir, pid, config.WorkspacePath))
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimRight(string(data), "\n"), nil
 }
 
@@ -73,10 +78,12 @@ func queryAgentStatus(ctx context.Context, dc dockerx.ControllerClient, pid stri
 	if dc == nil {
 		return "absent"
 	}
-	_, state, err := dc.ContainerByName(ctx, "glovebox-agent-"+pid)
+
+	_, state, err := dc.ContainerByName(ctx, config.ContainerAgentPrefix+pid)
 	if err != nil || state == "" {
 		return "absent"
 	}
+
 	return state
 }
 
@@ -84,9 +91,11 @@ func queryStackStatus(ctx context.Context, dc dockerx.ControllerClient, pid stri
 	if dc == nil {
 		return "no stack"
 	}
-	count, exists, err := dc.NetworkContainerCount(ctx, "glovebox-stack-"+pid)
+
+	count, exists, err := dc.NetworkContainerCount(ctx, config.ContainerStackPrefix+pid)
 	if err != nil || !exists || count == 1 {
 		return "no stack"
 	}
+
 	return fmt.Sprintf("%d containers", count)
 }

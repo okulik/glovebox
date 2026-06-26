@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -89,7 +90,7 @@ type ProjectRmCmd struct {
 
 func (c *ProjectRmCmd) Run(kctx *kong.Context) error {
 	cfg := config.GbxFromEnv().ConfigDir
-	stateDir := filepath.Join(cfg, "state")
+	stateDir := filepath.Join(cfg, config.StatePath)
 	if c.All && c.IDOrPrefix != "" {
 		return errors.New("gbx rm: --all conflicts with an explicit pid argument")
 	}
@@ -100,7 +101,7 @@ func (c *ProjectRmCmd) Run(kctx *kong.Context) error {
 	// Build the list of pids to remove.
 	var pids []string
 	if c.All {
-		entries, err := os.ReadDir(filepath.Join(stateDir, projectsPath))
+		entries, err := os.ReadDir(filepath.Join(stateDir, config.ProjectsPath))
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Fprintln(kctx.Stdout, "No projects to remove.")
@@ -154,7 +155,7 @@ var ensureAgentFn project.EnsureAgentFn = func(ctx context.Context, dc dockerx.C
 	if err := ensureAgentImage(libexec); err != nil {
 		return fmt.Errorf("build agent image: %w", err)
 	}
-	stateProjDir := stateDir + "/projects/" + pid
+	stateProjDir := path.Join(stateDir, config.ProjectsPath, pid)
 	mounts, err := agent.ReadMounts(stateProjDir)
 	if err != nil {
 		return fmt.Errorf("read project mounts: %w", err)
@@ -172,8 +173,8 @@ var ensureAgentFn project.EnsureAgentFn = func(ctx context.Context, dc dockerx.C
 			Workspace:      ws,
 			Image:          image,
 			StateProjDir:   stateProjDir,
-			StateSharedDir: stateDir + "/shared",
-			DockerDir:      libexec + "/docker",
+			StateSharedDir: path.Join(stateDir, "shared"),
+			DockerDir:      path.Join(libexec, "docker"),
 			HostEnv:        envMap(),
 			Mounts:         mounts,
 			Labels:         labels,

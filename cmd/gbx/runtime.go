@@ -16,34 +16,14 @@ import (
 	"github.com/okulik/glovebox/internal/state"
 )
 
-const (
-	// projectsPath is the directory segment under the state dir that holds the
-	// per-project subdirectories (state/projects/<pid>/...). Shared by every
-	// command that resolves a project's state dir.
-	projectsPath = "projects"
-
-	// workspacePathFile is the per-project file that records the registered
-	// workspace's absolute path (state/projects/<pid>/workspace-path). Written by
-	// internal/project on registration; read here to locate a project's workspace.
-	workspacePathFile = "workspace-path"
-)
-
 // hostDocker is the dockerx.Host instance used by every command in cmd/gbx.
-// Initialized lazily by requireDocker (the gate every Docker-touching command
-// passes through) so the SDK client's construction error can be surfaced as a
-// normal CLI error instead of a package-init panic. Tests can swap it by
-// assigning before the first requireDocker() call.
 var hostDocker dockerx.HostClient
 
-// hostClient is the API-level companion to hostDocker for read/inspect ops
-// (project status today, the internal/stack package in Phase 4). Like
-// hostDocker, it is constructed from DOCKER_HOST via FromEnv on first need.
+// hostClient is the API-level companion to hostDocker for read/inspect ops.
 var hostClient dockerx.ControllerClient
 
 // confirmYN prompts on stderr and reads a y/N answer from stdin, returning
-// true only on an explicit "y". A read error (e.g. empty stdin) counts as
-// "no". Used by the destructive commands (gbx rm, stack apply/destroy) to
-// gate on confirmation when -y is absent.
+// true only on an explicit "y".
 func confirmYN(stderr io.Writer, prompt string) bool {
 	fmt.Fprint(stderr, prompt)
 	var ans string
@@ -53,9 +33,7 @@ func confirmYN(stderr io.Writer, prompt string) bool {
 	return strings.EqualFold(ans, "y")
 }
 
-// requireDocker dies (returns error) if the docker daemon is unreachable.
-// On first call it also lazy-constructs hostDocker and hostClient from
-// DOCKER_HOST / DOCKER_API_VERSION in the environment.
+// requireDocker returns error if the docker daemon is unreachable.
 func requireDocker() error {
 	if hostDocker == nil {
 		h, err := dockerx.NewHostClient()
@@ -78,11 +56,7 @@ func requireDocker() error {
 }
 
 // projectClient returns a dockerx.Client suitable for read-only project
-// status queries. It does not require the daemon to be reachable: errors
-// from later API calls degrade to "absent" / "no stack" in project.List.
-// Returns nil only if SDK client construction itself fails (malformed
-// DOCKER_HOST), in which case the caller still gets a usable List with
-// all projects reported as absent.
+// status queries.
 func projectClient() dockerx.ControllerClient {
 	if hostClient != nil {
 		return hostClient
@@ -105,8 +79,6 @@ func requireEnvFile() error {
 }
 
 // ensureStackUp brings the singleton stack up if egress-proxy isn't running.
-// Progress (image pulls / controller build / healthcheck wait) streams to
-// stderr so the user sees what's happening on first start.
 func ensureStackUp(ctx context.Context) error {
 	st, err := stack.FromEnv(hostDocker, hostClient)
 	if err != nil {
@@ -163,7 +135,7 @@ func ensureTargetAgent(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	wsfile := filepath.Join(config.GbxFromEnv().StateDir, projectsPath, pid, workspacePathFile)
+	wsfile := filepath.Join(config.GbxFromEnv().StateDir, config.ProjectsPath, pid, config.WorkspacePath)
 	wsData, err := os.ReadFile(wsfile)
 	if err != nil {
 		return "", fmt.Errorf("Project %s has no recorded workspace. Run 'gbx new <path>' for it first.", pid)
@@ -176,5 +148,5 @@ func ensureTargetAgent(ctx context.Context) (string, error) {
 	if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, config.GbxFromEnv().StateDir); err != nil {
 		return "", err
 	}
-	return "glovebox-agent-" + pid, nil
+	return config.ContainerAgentPrefix + pid, nil
 }

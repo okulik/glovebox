@@ -5,14 +5,12 @@ import (
 	"strconv"
 )
 
+const (
+	DefaultProjectID = "default"
+)
+
 // GbxaConfig holds the env-derived knobs the in-container gbxa dispatcher
-// reads. ControllerURL and ProjectID are typically set by the host (when
-// agent.BuildCreateConfig wires up the agent container's env); WaitTimeout
-// is an operator-tunable override for `gbx-stack wait`.
-//
-// GbxaConfig.ControllerURL's default differs from GbxConfig.ControllerURL:
-// inside the container we reach the controller by DNS alias on the
-// glovebox-internal network, not via the host's loopback port mapping.
+// reads.
 type GbxaConfig struct {
 	// ControllerURL is the in-network endpoint, default
 	// http://stack-controller:7000.
@@ -35,7 +33,7 @@ func GbxaFromEnv() GbxaConfig {
 	}
 	return GbxaConfig{
 		ControllerURL:      envOr("GBX_CONTROLLER_URL", "http://stack-controller:7000"),
-		ProjectID:          envOr("GBX_PROJECT_ID", "default"),
+		ProjectID:          envOr("GBX_PROJECT_ID", DefaultProjectID),
 		WaitTimeoutSeconds: timeout,
 	}
 }

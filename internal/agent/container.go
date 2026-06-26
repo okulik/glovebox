@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
@@ -53,7 +54,7 @@ func Ensure(ctx context.Context, spec EnsureSpec) error {
 	if spec.Docker == nil {
 		return errors.New("agent.Ensure: Docker (dockerx.Client) is required")
 	}
-	cname := "glovebox-agent-" + spec.Create.PID
+	cname := config.ContainerAgentPrefix + spec.Create.PID
 
 	subdirs := []string{"claude", "codex", "opencode", "pi", "gemini", "aider", "hermes"}
 	for _, s := range subdirs {
@@ -125,7 +126,7 @@ func Ensure(ctx context.Context, spec EnsureSpec) error {
 		return fmt.Errorf("start container: %w", err)
 	}
 
-	stacknet := "glovebox-stack-" + spec.Create.PID
+	stacknet := config.ContainerStackPrefix + spec.Create.PID
 	if _, exists, nerr := spec.Docker.NetworkContainerCount(ctx, stacknet); nerr == nil && exists {
 		// ConnectNetwork already swallows "already attached" so this stays
 		// idempotent across re-runs.
@@ -144,6 +145,6 @@ func Remove(ctx context.Context, dc dockerx.ControllerClient, pid string) error 
 
 	// RemoveContainer with force=true is best-effort; a NotFound or
 	// transient daemon error shouldn't bubble up to the user.
-	_ = dc.RemoveContainer(ctx, "glovebox-agent-"+pid, true)
+	_ = dc.RemoveContainer(ctx, config.ContainerAgentPrefix+pid, true)
 	return nil
 }

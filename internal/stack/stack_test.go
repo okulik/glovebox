@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/moby/moby/api/types/container"
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
@@ -17,9 +19,9 @@ func newTestStack(t *testing.T) (*Stack, *dockerx.Fake, *dockerx.FakeHost) {
 	// docker behind it). Tests that want to exercise the missing-image path
 	// can clear these.
 	host.Images = map[string]bool{
-		ImageController:  true,
-		ImageEgressProxy: true,
-		ImageSocketProxy: true,
+		config.ImageController:  true,
+		config.ImageEgressProxy: true,
+		config.ImageSocketProxy: true,
 	}
 	client := dockerx.NewFake()
 	libexec := t.TempDir()
@@ -39,18 +41,18 @@ func TestUpCreatesNetworksAndContainers(t *testing.T) {
 	if err := s.Up(context.Background(), &bytes.Buffer{}); err != nil {
 		t.Fatalf("Up: %v", err)
 	}
-	for _, n := range []string{NetworkInternal, NetworkControl, NetworkEgress} {
+	for _, n := range []string{config.NetworkInternal, config.NetworkControl, config.NetworkEgress} {
 		if !client.Networks[n] {
 			t.Errorf("network %s not created", n)
 		}
 	}
-	for _, c := range []string{ContainerEgressProxy, ContainerSocketProxy, ContainerController} {
+	for _, c := range []string{config.ContainerEgressProxy, config.ContainerSocketProxy, config.ContainerStackController} {
 		fc, ok := client.Containers[c]
 		if !ok {
 			t.Errorf("container %s not created", c)
 			continue
 		}
-		if fc.State != "running" {
+		if fc.State != string(container.StateRunning) {
 			t.Errorf("container %s state = %q, want running", c, fc.State)
 		}
 	}
@@ -70,17 +72,17 @@ func TestRebuildControllerAlwaysRebuildsAndRecreates(t *testing.T) {
 	}
 
 	// It force-removed the controller container...
-	if !slices.Contains(host.Calls, "rm -f "+ContainerController) {
-		t.Errorf("expected force-remove of %s, host calls = %v", ContainerController, host.Calls)
+	if !slices.Contains(host.Calls, "rm -f "+config.ContainerStackController) {
+		t.Errorf("expected force-remove of %s, host calls = %v", config.ContainerStackController, host.Calls)
 	}
 	// ...rebuilt the controller image unconditionally (the image already
 	// existed, proving it doesn't take Up's ImageExists shortcut)...
-	if host.LastBuild.Tag != ImageController {
+	if host.LastBuild.Tag != config.ImageController {
 		t.Errorf("expected controller image rebuild, last build tag = %q", host.LastBuild.Tag)
 	}
 	// ...and the controller ends up running.
-	fc, ok := client.Containers[ContainerController]
-	if !ok || fc.State != "running" {
+	fc, ok := client.Containers[config.ContainerStackController]
+	if !ok || fc.State != string(container.StateRunning) {
 		t.Errorf("controller not running after rebuild: %+v", fc)
 	}
 }
@@ -94,14 +96,14 @@ func TestUpIsIdempotent(t *testing.T) {
 	// Snapshot what was created. Second Up should leave everything as-is -
 	// no extra network-connect entries, same container IDs.
 	prevConnects := len(client.NetworkConnects)
-	prevEgressID := client.Containers[ContainerEgressProxy].ID
+	prevEgressID := client.Containers[config.ContainerEgressProxy].ID
 	if err := s.Up(ctx, &bytes.Buffer{}); err != nil {
 		t.Fatalf("Up #2: %v", err)
 	}
 	if got := len(client.NetworkConnects); got != prevConnects {
 		t.Errorf("idempotent Up should not re-attach networks: prev=%d got=%d", prevConnects, got)
 	}
-	if client.Containers[ContainerEgressProxy].ID != prevEgressID {
+	if client.Containers[config.ContainerEgressProxy].ID != prevEgressID {
 		t.Errorf("idempotent Up should not recreate containers")
 	}
 }
@@ -118,9 +120,9 @@ func TestUpAttachesAdditionalNetworks(t *testing.T) {
 	want := []struct {
 		container, network string
 	}{
-		{ContainerEgressProxy, NetworkEgress},
-		{ContainerController, NetworkControl},
-		{ContainerController, NetworkEgress},
+		{config.ContainerEgressProxy, config.NetworkEgress},
+		{config.ContainerStackController, config.NetworkControl},
+		{config.ContainerStackController, config.NetworkEgress},
 	}
 	for _, w := range want {
 		matched := slices.ContainsFunc(client.NetworkConnects, func(nc struct{ Container, Network string }) bool {
@@ -134,7 +136,7 @@ func TestUpAttachesAdditionalNetworks(t *testing.T) {
 
 func TestIsRunningTrue(t *testing.T) {
 	s, client, _ := newTestStack(t)
-	client.Containers[ContainerEgressProxy] = dockerx.FakeContainer{ID: "x", State: "running"}
+	client.Containers[config.ContainerEgressProxy] = dockerx.FakeContainer{ID: "x", State: string(container.StateRunning)}
 	got, err := s.IsRunning(context.Background())
 	if err != nil {
 		t.Fatalf("IsRunning: %v", err)
@@ -157,7 +159,7 @@ func TestIsRunningFalseWhenAbsent(t *testing.T) {
 
 func TestIsRunningFalseWhenExited(t *testing.T) {
 	s, client, _ := newTestStack(t)
-	client.Containers[ContainerEgressProxy] = dockerx.FakeContainer{ID: "x", State: "exited"}
+	client.Containers[config.ContainerEgressProxy] = dockerx.FakeContainer{ID: "x", State: string(container.StateExited)}
 	got, err := s.IsRunning(context.Background())
 	if err != nil {
 		t.Fatalf("IsRunning: %v", err)
@@ -172,7 +174,7 @@ func TestRestartProxyTargetsProxyContainer(t *testing.T) {
 	if err := s.RestartProxy(context.Background()); err != nil {
 		t.Fatalf("RestartProxy: %v", err)
 	}
-	want := "restart " + ContainerEgressProxy
+	want := "restart " + config.ContainerEgressProxy
 	if !slices.Contains(host.Calls, want) {
 		t.Errorf("expected call %q in %v", want, host.Calls)
 	}
@@ -180,23 +182,23 @@ func TestRestartProxyTargetsProxyContainer(t *testing.T) {
 
 func TestUpBuildsControllerImageWhenMissing(t *testing.T) {
 	s, _, host := newTestStack(t)
-	delete(host.Images, ImageController) // force build path
+	delete(host.Images, config.ImageController) // force build path
 	if err := s.Up(context.Background(), &bytes.Buffer{}); err != nil {
 		t.Fatalf("Up: %v", err)
 	}
-	if host.LastBuild.Tag != ImageController {
-		t.Errorf("expected BuildImage tag = %q, got %q", ImageController, host.LastBuild.Tag)
+	if host.LastBuild.Tag != config.ImageController {
+		t.Errorf("expected BuildImage tag = %q, got %q", config.ImageController, host.LastBuild.Tag)
 	}
 }
 
 func TestUpPullsMissingImages(t *testing.T) {
 	s, client, host := newTestStack(t)
-	delete(host.Images, ImageEgressProxy)
-	delete(host.Images, ImageSocketProxy)
+	delete(host.Images, config.ImageEgressProxy)
+	delete(host.Images, config.ImageSocketProxy)
 	if err := s.Up(context.Background(), &bytes.Buffer{}); err != nil {
 		t.Fatalf("Up: %v", err)
 	}
-	for _, img := range []string{ImageEgressProxy, ImageSocketProxy} {
+	for _, img := range []string{config.ImageEgressProxy, config.ImageSocketProxy} {
 		if !slices.Contains(client.PulledImages, img) {
 			t.Errorf("expected pull of %q, got %v", img, client.PulledImages)
 		}

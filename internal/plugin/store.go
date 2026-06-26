@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"github.com/okulik/glovebox/internal/agent"
+	"github.com/okulik/glovebox/internal/config"
 )
 
-// dockerfileName is the generated layered Dockerfile written into the project
-// state dir (the parent of the plugins dir).
 const (
 	dockerfileName = "Dockerfile.plugins"
 	noDescription  = "(no description)"
@@ -20,7 +19,7 @@ const (
 
 // Dir returns the plugins directory for a project's state dir.
 func Dir(stateProjDir string) string {
-	return filepath.Join(stateProjDir, "plugins")
+	return filepath.Join(stateProjDir, config.PluginsPath)
 }
 
 // List returns the project's plugins sorted by id. A missing plugins dir is
@@ -69,9 +68,6 @@ func List(stateProjDir string) ([]Plugin, error) {
 }
 
 // Find resolves a plugin id prefix to a single plugin within the project.
-// The "No plugin matches" / "Plugin id is ambiguous" strings are deliberately
-// capitalized and are part of gbx's user-facing output (mirroring
-// projectid.Resolve); keep them as-is rather than "fixing" the capitalization.
 func Find(stateProjDir, prefix string) (Plugin, error) {
 	list, err := List(stateProjDir)
 	if err != nil {
@@ -98,7 +94,7 @@ func Find(stateProjDir, prefix string) (Plugin, error) {
 }
 
 // Store validates content and writes it as a new plugin under the project's
-// plugins dir, returning the new id. The write is atomic (temp + rename).
+// plugins dir, returning the new id.
 func Store(stateProjDir, content string, ts time.Time) (string, error) {
 	if err := Validate(content); err != nil {
 		return "", err
@@ -115,7 +111,7 @@ func Store(stateProjDir, content string, ts time.Time) (string, error) {
 }
 
 // Overwrite validates content and rewrites an existing plugin in place,
-// preserving its id. The write is atomic.
+// preserving its id.
 func Overwrite(p Plugin, content string) error {
 	if err := Validate(content); err != nil {
 		return err

@@ -8,22 +8,15 @@ import (
 	"strings"
 )
 
-// instructionsMarkerBegin / instructionsMarkerEnd delimit the glovebox-owned
-// block within each agent's instruction file. The content between the markers
-// is refreshed on every Ensure; anything outside (user notes, project rules)
-// is preserved verbatim.
 const (
+	AgentInstructionsDoc    = "agent-instructions.md"
+	DefaultsPath            = "defaults"
 	InstructionsMarkerBegin = "<!-- glovebox-instructions-begin -->"
 	InstructionsMarkerEnd   = "<!-- glovebox-instructions-end -->"
 )
 
 // AgentInstructionTargets are the per-agent instruction files into which we
-// inject glovebox guidance. The paths are relative to stateProjDir; each one
-// is bind-mounted into the agent container at the location its CLI expects.
-//
-//	state/<pid>/claude/CLAUDE.md   →  /home/gbx/.claude/CLAUDE.md
-//	state/<pid>/codex/AGENTS.md    →  /home/gbx/.codex/AGENTS.md
-//	state/<pid>/gemini/GEMINI.md   →  /home/gbx/.gemini/GEMINI.md
+// inject glovebox guidance.
 var AgentInstructionTargets = []string{
 	"claude/CLAUDE.md",
 	"codex/AGENTS.md",
@@ -31,27 +24,9 @@ var AgentInstructionTargets = []string{
 }
 
 // InjectAgentInstructions writes (or refreshes) a marker-wrapped block of
-// glovebox guidance into each agent's conventional instruction file. The
-// content inlined into the block comes from defaults/agent-instructions.md
-// - a deliberately short pointer to the full operating docs that live at
-// /etc/glovebox/docker-sandbox.md, and /etc/glovebox/proxy-sandbox.md
-// inside the container (bind-mounted from defaults/docker-sandbox.md on
-// the host).
-//
-// Inlining only the summary keeps every agent session's system-prompt cost
-// small while still ensuring the most safety-critical bit (the egress 451 +
-// X-Glovebox-Egress signal) is in front of the agent before it makes its
-// first request. Full doc stays as a live, always-current bind mount.
-//
-// Idempotent: re-running with the same source content writes the same bytes
-// and is a no-op for downstream consumers (mtime is left alone when the file
-// is already up to date). Updates to the source replace only the content
-// between markers - user edits outside the block survive.
-//
-// A missing source file is treated as "nothing to inject" rather than an
-// error, so older glovebox checkouts without the summary keep working.
+// glovebox guidance into each agent's conventional instruction file.
 func InjectAgentInstructions(stateProjDir, dockerDir string) error {
-	src := filepath.Join(dockerDir, "..", "defaults", "agent-instructions.md")
+	src := filepath.Join(dockerDir, "..", DefaultsPath, AgentInstructionsDoc)
 	canonical, err := os.ReadFile(src)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -81,14 +56,7 @@ func buildInstructionsBlock(canonical []byte) string {
 	return b.String()
 }
 
-// writeInstructionsFile ensures path's content contains block. Modes:
-//
-//   - file missing:                   write block only
-//   - existing file with markers:     replace text between markers, keep rest
-//   - existing file without markers:  append block at the end (newline-safe)
-//
-// The write is skipped when the resulting bytes match what's already on disk,
-// so re-invocations don't churn the file's mtime.
+// writeInstructionsFile ensures path's content contains block.
 func writeInstructionsFile(path, block string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("mkdir for %s: %w", path, err)
@@ -120,8 +88,7 @@ func writeInstructionsFile(path, block string) error {
 }
 
 // replaceMarkedBlock swaps the bytes between (and including) the begin/end
-// markers with block. If the markers are present but out of order, the
-// function falls back to appending - better to over-tag than to mangle.
+// markers with block.
 func replaceMarkedBlock(existing, block string) string {
 	beginIdx := strings.Index(existing, InstructionsMarkerBegin)
 	endIdx := strings.Index(existing, InstructionsMarkerEnd)
@@ -129,7 +96,6 @@ func replaceMarkedBlock(existing, block string) string {
 		return existing + "\n\n" + block
 	}
 	endIdx += len(InstructionsMarkerEnd)
-	// Eat one trailing newline so we don't accumulate blank lines on repeat.
 	if endIdx < len(existing) && existing[endIdx] == '\n' {
 		endIdx++
 	}

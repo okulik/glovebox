@@ -98,8 +98,7 @@ func (s *Store) SaveProposed(pid string, m *manifest.Manifest, yaml string) erro
 	return s.flush()
 }
 
-// ClearProposed removes any pending proposal for a project. A missing record
-// is a no-op.
+// ClearProposed removes any pending proposal for a project.
 func (s *Store) ClearProposed(pid string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -120,9 +119,7 @@ func (s *Store) Delete(pid string) error {
 	return s.flush()
 }
 
-// Get returns a copy of the record for a project, plus an `ok` flag. Callers
-// receive a value (not a shared pointer) so concurrent Save calls cannot mutate
-// the returned record's fields under them.
+// Get returns a copy of the record for a project, plus an `ok` flag.
 func (s *Store) Get(pid string) (Record, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -133,8 +130,7 @@ func (s *Store) Get(pid string) (Record, bool) {
 	return *r, true
 }
 
-// All returns a snapshot of all records, by value, for the same reason Get
-// returns by value: the caller can't race against Save through a shared pointer.
+// All returns a snapshot of all records, by value.
 func (s *Store) All() map[string]Record {
 	s.mu.Lock()
 	defer s.mu.Unlock()

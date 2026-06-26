@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/moby/moby/api/types/container"
 	"golang.org/x/term"
 )
 
@@ -60,10 +61,10 @@ func (s styler) status(text string, width int) string {
 	case strings.Contains(text, "unhealthy"):
 		return s.red(padded)
 	case strings.Contains(text, "(healthy)"),
-		text == "running",
+		text == string(container.StateRunning),
 		strings.HasPrefix(text, "Up "):
 		return s.green(padded)
-	case text == "exited", strings.HasPrefix(text, "Exited"):
+	case text == string(container.StateExited), strings.HasPrefix(text, "Exited"):
 		return s.yellow(padded)
 	case text == "", text == "absent", text == "no stack":
 		return s.dim(padded)

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
@@ -16,17 +17,17 @@ func setupRebuildEnv(t *testing.T) (string, string) {
 	t.Helper()
 	cfg := t.TempDir()
 	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, "state"))
+	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
 	t.Setenv("GBX_LIBEXEC", t.TempDir())
 	if err := os.WriteFile(filepath.Join(cfg, ".env"), []byte("X=1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	pid := "abc123def456"
-	projDir := filepath.Join(cfg, "state", "projects", pid)
+	projDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid)
 	if err := os.MkdirAll(projDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(projDir, "workspace-path"), []byte("/tmp/ws"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projDir, config.WorkspacePath), []byte("/tmp/ws"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -41,7 +42,7 @@ func setupRebuildEnv(t *testing.T) (string, string) {
 
 func TestRebuildBuildsDerivedImageWhenPluginsPresent(t *testing.T) {
 	cfg, pid := setupRebuildEnv(t)
-	pluginsDir := filepath.Join(cfg, "state", "projects", pid, "plugins")
+	pluginsDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid, config.PluginsPath)
 	if err := os.MkdirAll(pluginsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestRebuildBuildsDerivedImageWhenPluginsPresent(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	fh := hostDocker.(*dockerx.FakeHost)
-	wantTag := "glovebox-agent-" + pid + ":local"
+	wantTag := config.ContainerAgentPrefix + pid + ":local"
 	foundBuild := false
 	for _, c := range fh.Calls {
 		if strings.HasPrefix(c, "build "+wantTag+" ") {
@@ -65,7 +66,7 @@ func TestRebuildBuildsDerivedImageWhenPluginsPresent(t *testing.T) {
 	if !foundBuild {
 		t.Errorf("expected a build of %s; calls=%v", wantTag, fh.Calls)
 	}
-	if _, err := os.Stat(filepath.Join(cfg, "state", "projects", pid, "Dockerfile.plugins")); err != nil {
+	if _, err := os.Stat(filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid, "Dockerfile.plugins")); err != nil {
 		t.Errorf("Dockerfile.plugins not written: %v", err)
 	}
 }
@@ -73,7 +74,7 @@ func TestRebuildBuildsDerivedImageWhenPluginsPresent(t *testing.T) {
 func TestRebuildRemovesStaleDerivedImageWhenNoPlugins(t *testing.T) {
 	_, pid := setupRebuildEnv(t)
 	fh := hostDocker.(*dockerx.FakeHost)
-	derived := "glovebox-agent-" + pid + ":local"
+	derived := config.ContainerAgentPrefix + pid + ":local"
 	fh.Images[derived] = true
 
 	_, stderr, code := runCLI(t, "rebuild", pid)
@@ -100,7 +101,7 @@ func TestRebuildRemovesStaleDerivedImageWhenNoPlugins(t *testing.T) {
 // projectsDir/projectsPath naming used by that branch.
 func TestRebuildAllBuildsDerivedForPluginProject(t *testing.T) {
 	cfg, pid := setupRebuildEnv(t)
-	pluginsDir := filepath.Join(cfg, "state", "projects", pid, "plugins")
+	pluginsDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid, config.PluginsPath)
 	if err := os.MkdirAll(pluginsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +115,7 @@ func TestRebuildAllBuildsDerivedForPluginProject(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
 	}
 	fh := hostDocker.(*dockerx.FakeHost)
-	wantTag := "glovebox-agent-" + pid + ":local"
+	wantTag := config.ContainerAgentPrefix + pid + ":local"
 	foundBuild := false
 	for _, c := range fh.Calls {
 		if strings.HasPrefix(c, "build "+wantTag+" ") {

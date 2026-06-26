@@ -5,6 +5,30 @@ import (
 	"path/filepath"
 )
 
+const (
+	ActiveProjectPath = "active-project"
+	PluginsPath       = "plugins"
+	ProjectsPath      = "projects"
+	StatePath         = "state"
+	WorkspacePath     = "workspace-path"
+
+	NetworkInternal = "glovebox-internal"
+	NetworkControl  = "glovebox-control"
+	NetworkEgress   = "glovebox-egress"
+
+	ContainerAgentPrefix     = "glovebox-agent-"
+	ContainerStackPrefix     = "glovebox-stack-"
+	ContainerEgressProxy     = "glovebox-egress-proxy"
+	ContainerSocketProxy     = "glovebox-socket-proxy"
+	ContainerStackController = "glovebox-stack-controller"
+
+	ImageEgressProxy = "ubuntu/squid:latest"
+	ImageSocketProxy = "tecnativa/docker-socket-proxy:0.3.0"
+	ImageController  = "glovebox-stack-controller:local"
+
+	StackControllerHost = "http://stack-controller"
+)
+
 // GbxConfig holds runtime configuration for the host CLI (cmd/gbx). It is
 // the host-side mirror of ControllerConfig: same shape, different scope.
 type GbxConfig struct {
