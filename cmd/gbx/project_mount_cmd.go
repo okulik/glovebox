@@ -156,7 +156,7 @@ func (c *ProjectMountApplyCmd) Run(kctx *kong.Context) error {
 	if err := hostDocker.ForceRemoveContainer(ctx, cname); err != nil {
 		return fmt.Errorf("failed to force remove container '%s': %w", cname, err)
 	}
-	libexec := os.Getenv("GBX_LIBEXEC")
+	libexec := os.Getenv(config.EnvLibexec)
 	if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, config.GbxFromEnv().StateDir); err != nil {
 		return err
 	}

@@ -16,9 +16,9 @@ import (
 func setupRebuildEnv(t *testing.T) (string, string) {
 	t.Helper()
 	cfg := t.TempDir()
-	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
-	t.Setenv("GBX_LIBEXEC", t.TempDir())
+	t.Setenv(config.EnvConfigDir, cfg)
+	t.Setenv(config.EnvStateDir, filepath.Join(cfg, config.StatePath))
+	t.Setenv(config.EnvLibexec, t.TempDir())
 	if err := os.WriteFile(filepath.Join(cfg, ".env"), []byte("X=1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

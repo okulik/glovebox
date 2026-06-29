@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/config"
 )
 
 func newStackServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
@@ -21,7 +23,7 @@ func TestStackLs(t *testing.T) {
 		_, _ = w.Write([]byte(`["pid1","pid2"]`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
+	t.Setenv(config.EnvControllerURL, srv.URL)
 	stdout, _, code := runCLI(t, "stack", "ls")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -39,8 +41,8 @@ func TestStackStatusUsesProjectID(t *testing.T) {
 		_, _ = w.Write([]byte(`{"state":"ready"}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 	stdout, _, code := runCLI(t, "stack", "status")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -61,11 +63,11 @@ func TestStackStatusOverridePIDWins(t *testing.T) {
 		_, _ = w.Write([]byte(`{}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
+	t.Setenv(config.EnvControllerURL, srv.URL)
 	// GBX_OVERRIDE_PID is what the global -p/--pid flag resolves to; it must
 	// win over GBX_PROJECT_ID.
-	t.Setenv("GBX_PROJECT_ID", "envproj")
-	t.Setenv("GBX_OVERRIDE_PID", "flagproj")
+	t.Setenv(config.EnvProjectID, "envproj")
+	t.Setenv(config.EnvOverridePID, "flagproj")
 	_, _, code := runCLI(t, "stack", "status")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -84,8 +86,8 @@ func TestStackDown(t *testing.T) {
 		_, _ = w.Write([]byte(`{}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 	_, _, code := runCLI(t, "stack", "down")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -104,8 +106,8 @@ func TestStackDestroyYes(t *testing.T) {
 		_, _ = w.Write([]byte(`{}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "p1")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "p1")
 	_, _, code := runCLI(t, "stack", "destroy", "-y")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -146,8 +148,8 @@ func TestStackDestroyPromptProceedsOnYes(t *testing.T) {
 		_, _ = w.Write([]byte(`{}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "p1")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "p1")
 	withStdin(t, "y\n")
 	_, _, code := runCLI(t, "stack", "destroy")
 	if code != 0 {
@@ -164,8 +166,8 @@ func TestStackDestroyPromptAbortsOnNo(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "p1")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "p1")
 	withStdin(t, "n\n")
 	_, _, code := runCLI(t, "stack", "destroy")
 	if code == 0 {
@@ -181,11 +183,11 @@ func TestStackDestroyOverridePIDWins(t *testing.T) {
 		_, _ = w.Write([]byte(`{}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
+	t.Setenv(config.EnvControllerURL, srv.URL)
 	// GBX_OVERRIDE_PID (set by the global -p/--pid flag) must win over
 	// GBX_PROJECT_ID.
-	t.Setenv("GBX_PROJECT_ID", "envproj")
-	t.Setenv("GBX_OVERRIDE_PID", "flagproj")
+	t.Setenv(config.EnvProjectID, "envproj")
+	t.Setenv(config.EnvOverridePID, "flagproj")
 	_, _, code := runCLI(t, "stack", "destroy", "-y")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -203,8 +205,8 @@ func TestStackApplyPromptProceedsOnYes(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":"applied"}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 	withStdin(t, "y\n")
 	stdout, _, code := runCLI(t, "stack", "apply")
 	if code != 0 {
@@ -224,8 +226,8 @@ func TestStackLogs(t *testing.T) {
 		_, _ = w.Write([]byte("log line 1\nlog line 2\n"))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "p1")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "p1")
 	stdout, _, code := runCLI(t, "stack", "logs", "redis")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -245,7 +247,7 @@ func TestStackImageAllowAppendsIfMissing(t *testing.T) {
 	if err := os.WriteFile(allowPath, []byte("registry.io\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("GBX_LIBEXEC", libexec)
+	t.Setenv(config.EnvLibexec, libexec)
 	_, _, code := runCLI(t, "stack", "image-allow", "new-registry.io")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -266,7 +268,7 @@ func TestStackImageAllowSkipsIfAlreadyPresent(t *testing.T) {
 	if err := os.WriteFile(allowPath, []byte("registry.io\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("GBX_LIBEXEC", libexec)
+	t.Setenv(config.EnvLibexec, libexec)
 	stdout, _, code := runCLI(t, "stack", "image-allow", "registry.io")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -288,8 +290,8 @@ func TestStackDiffRendersManifests(t *testing.T) {
 		_, _ = w.Write([]byte(`{"live":"version: 1\nservices:\n  redis:\n    image: redis:7-alpine\n","proposed":"version: 1\nservices:\n  redis:\n    image: redis:8\n"}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 	stdout, _, code := runCLI(t, "stack", "diff")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -308,8 +310,8 @@ func TestStackDiffNoProposal(t *testing.T) {
 		_, _ = w.Write([]byte(`{"live":"version: 1\n","proposed":null}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 	stdout, _, code := runCLI(t, "stack", "diff")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -329,8 +331,8 @@ func TestStackApplyPostsEmptyBody(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":"applied"}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 	stdout, _, code := runCLI(t, "stack", "apply", "-y")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -352,8 +354,8 @@ func TestStackApplyRequiresYes(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 	_, _, code := runCLI(t, "stack", "apply")
 	if code == 0 {
 		t.Fatal("expected non-zero exit without -y")
@@ -370,8 +372,8 @@ func TestStackApplyDryRunShowsProposal(t *testing.T) {
 		_, _ = w.Write([]byte(`{"live":null,"proposed":"version: 1\nservices:\n  redis:\n    image: redis:8\n"}`))
 	})
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 	stdout, _, code := runCLI(t, "stack", "apply", "--dry-run")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)

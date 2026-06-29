@@ -5,10 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/config"
 )
 
 func TestSyncAllConflictsWithPid(t *testing.T) {
-	t.Setenv("GBX_OVERRIDE_PID", "somepid")
+	t.Setenv(config.EnvOverridePID, "somepid")
 	_, _, code := runCLI(t, "sync", "--all")
 	if code == 0 {
 		t.Fatal("expected non-zero exit for --all together with -p")
@@ -16,7 +18,7 @@ func TestSyncAllConflictsWithPid(t *testing.T) {
 }
 
 func TestSyncAllNoProjects(t *testing.T) {
-	t.Setenv("GBX_STATE_DIR", t.TempDir()) // no projects/ subdir
+	t.Setenv(config.EnvStateDir, t.TempDir()) // no projects/ subdir
 	stdout, _, code := runCLI(t, "sync", "--all")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -50,9 +52,9 @@ func TestSyncSingleProjectSeeds(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(stateDir, "projects", pid), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("GBX_STATE_DIR", stateDir)
-	t.Setenv("GBX_LIBEXEC", libexec)
-	t.Setenv("GBX_OVERRIDE_PID", pid)
+	t.Setenv(config.EnvStateDir, stateDir)
+	t.Setenv(config.EnvLibexec, libexec)
+	t.Setenv(config.EnvOverridePID, pid)
 
 	stdout, _, code := runCLI(t, "sync")
 	if code != 0 {

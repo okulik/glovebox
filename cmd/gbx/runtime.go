@@ -112,7 +112,7 @@ func resolveProjectTarget(q string) (string, error) {
 
 // targetPID resolves the per-invocation pid: GBX_OVERRIDE_PID > active project.
 func targetPID() (string, error) {
-	if p := os.Getenv("GBX_OVERRIDE_PID"); p != "" {
+	if p := os.Getenv(config.EnvOverridePID); p != "" {
 		return p, nil
 	}
 	if err := state.RequireSomeProject(config.GbxFromEnv().StateDir); err != nil {
@@ -144,7 +144,7 @@ func ensureTargetAgent(ctx context.Context) (string, error) {
 	for len(ws) > 0 && (ws[len(ws)-1] == '\n' || ws[len(ws)-1] == '\r') {
 		ws = ws[:len(ws)-1]
 	}
-	libexec := os.Getenv("GBX_LIBEXEC")
+	libexec := os.Getenv(config.EnvLibexec)
 	if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, config.GbxFromEnv().StateDir); err != nil {
 		return "", err
 	}

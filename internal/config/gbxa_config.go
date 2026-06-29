@@ -26,14 +26,14 @@ type GbxaConfig struct {
 // dispatcher and applies defaults.
 func GbxaFromEnv() GbxaConfig {
 	timeout := 1800
-	if v := os.Getenv("GBX_WAIT_TIMEOUT_S"); v != "" {
+	if v := os.Getenv(EnvWaitTimeoutS); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			timeout = n
 		}
 	}
 	return GbxaConfig{
-		ControllerURL:      envOr("GBX_CONTROLLER_URL", "http://stack-controller:7000"),
-		ProjectID:          envOr("GBX_PROJECT_ID", DefaultProjectID),
+		ControllerURL:      envOr(EnvControllerURL, "http://stack-controller:7000"),
+		ProjectID:          envOr(EnvProjectID, DefaultProjectID),
 		WaitTimeoutSeconds: timeout,
 	}
 }

@@ -56,7 +56,7 @@ func (c *ProjectStartCmd) Run(kctx *kong.Context) error {
 		return fmt.Errorf("Project %s has no recorded workspace.", pid)
 	}
 	ws := strings.TrimRight(string(data), "\r\n")
-	libexec := os.Getenv("GBX_LIBEXEC")
+	libexec := os.Getenv(config.EnvLibexec)
 	if err := ensureAgentFn(ctx, hostClient, pid, ws, libexec, config.GbxFromEnv().StateDir); err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (c *ProjectRebuildCmd) Run(kctx *kong.Context) error {
 		return nil
 	}
 
-	libexec := os.Getenv("GBX_LIBEXEC")
+	libexec := os.Getenv(config.EnvLibexec)
 	if err := hostDocker.BuildImage(context.Background(), agentBuildSpec(libexec)); err != nil {
 		return err
 	}

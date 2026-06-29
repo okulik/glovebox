@@ -6,11 +6,11 @@ import (
 )
 
 func TestGbxFromEnvDefaults(t *testing.T) {
-	t.Setenv("GBX_LIBEXEC", "")
-	t.Setenv("GBX_CONFIG_DIR", "")
-	t.Setenv("GBX_STATE_DIR", "")
-	t.Setenv("GBX_CONTROLLER_HOST_PORT", "")
-	t.Setenv("GBX_CONTROLLER_URL", "")
+	t.Setenv(EnvLibexec, "")
+	t.Setenv(EnvConfigDir, "")
+	t.Setenv(EnvStateDir, "")
+	t.Setenv(EnvControllerHostPort, "")
+	t.Setenv(EnvControllerURL, "")
 	t.Setenv("HOME", "/tmp/gbxconfig-test-home")
 	cfg := GbxFromEnv()
 	if cfg.Libexec != "" {
@@ -34,7 +34,7 @@ func TestGbxFromEnvDefaults(t *testing.T) {
 }
 
 func TestGbxFromEnvAgentImageOverride(t *testing.T) {
-	t.Setenv("GBX_AGENT_IMAGE", "glovebox-agent-test-aad:local")
+	t.Setenv(EnvAgentImage, "glovebox-agent-test-aad:local")
 	cfg := GbxFromEnv()
 	if cfg.AgentImage != "glovebox-agent-test-aad:local" {
 		t.Errorf("AgentImage override ignored: %q", cfg.AgentImage)
@@ -42,10 +42,10 @@ func TestGbxFromEnvAgentImageOverride(t *testing.T) {
 }
 
 func TestGbxFromEnvOverrides(t *testing.T) {
-	t.Setenv("GBX_LIBEXEC", "/opt/glovebox/libexec")
-	t.Setenv("GBX_CONFIG_DIR", "/var/glovebox")
-	t.Setenv("GBX_STATE_DIR", "/var/glovebox-state")
-	t.Setenv("GBX_CONTROLLER_HOST_PORT", "27001")
+	t.Setenv(EnvLibexec, "/opt/glovebox/libexec")
+	t.Setenv(EnvConfigDir, "/var/glovebox")
+	t.Setenv(EnvStateDir, "/var/glovebox-state")
+	t.Setenv(EnvControllerHostPort, "27001")
 	cfg := GbxFromEnv()
 	if cfg.Libexec != "/opt/glovebox/libexec" {
 		t.Errorf("Libexec = %q", cfg.Libexec)
@@ -65,8 +65,8 @@ func TestGbxFromEnvOverrides(t *testing.T) {
 }
 
 func TestGbxFromEnvControllerURLOverride(t *testing.T) {
-	t.Setenv("GBX_CONTROLLER_HOST_PORT", "27001")
-	t.Setenv("GBX_CONTROLLER_URL", "http://gbx-controller.example:8080")
+	t.Setenv(EnvControllerHostPort, "27001")
+	t.Setenv(EnvControllerURL, "http://gbx-controller.example:8080")
 	cfg := GbxFromEnv()
 	if cfg.ControllerURL != "http://gbx-controller.example:8080" {
 		t.Errorf("explicit GBX_CONTROLLER_URL must win: %q", cfg.ControllerURL)

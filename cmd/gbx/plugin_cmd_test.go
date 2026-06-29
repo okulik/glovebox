@@ -29,8 +29,8 @@ func seedProject(t *testing.T, cfg string) string {
 
 func TestPluginAddStoresFragment(t *testing.T) {
 	cfg := t.TempDir()
-	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
+	t.Setenv(config.EnvConfigDir, cfg)
+	t.Setenv(config.EnvStateDir, filepath.Join(cfg, config.StatePath))
 	pid := seedProject(t, cfg)
 
 	prev := launchEditor
@@ -64,8 +64,8 @@ func TestPluginAddStoresFragment(t *testing.T) {
 
 func TestPluginAddRejectsMissingDescriptionAndKeepsDraft(t *testing.T) {
 	cfg := t.TempDir()
-	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
+	t.Setenv(config.EnvConfigDir, cfg)
+	t.Setenv(config.EnvStateDir, filepath.Join(cfg, config.StatePath))
 	pid := seedProject(t, cfg)
 
 	prev := launchEditor
@@ -104,8 +104,8 @@ func TestPluginAddRejectsMissingDescriptionAndKeepsDraft(t *testing.T) {
 
 func TestPluginLsAndRm(t *testing.T) {
 	cfg := t.TempDir()
-	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
+	t.Setenv(config.EnvConfigDir, cfg)
+	t.Setenv(config.EnvStateDir, filepath.Join(cfg, config.StatePath))
 	pid := seedProject(t, cfg)
 
 	pluginsDir := filepath.Join(cfg, config.StatePath, config.ProjectsPath, pid, config.PluginsPath)

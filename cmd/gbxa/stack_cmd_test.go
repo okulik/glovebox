@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/alecthomas/kong"
+	"github.com/okulik/glovebox/internal/config"
 )
 
 func TestDefaultToHelp(t *testing.T) {
@@ -61,8 +62,8 @@ func TestAgentProposePostsManifest(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":"proposed"}`))
 	}))
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "candidate.yml")
@@ -104,8 +105,8 @@ func TestAgentDiffReadsManifests(t *testing.T) {
 		_, _ = w.Write([]byte(`{"live":"version: 1\n","proposed":"version: 1\nservices:\n  redis:\n    image: redis:8\n"}`))
 	}))
 	defer srv.Close()
-	t.Setenv("GBX_CONTROLLER_URL", srv.URL)
-	t.Setenv("GBX_PROJECT_ID", "myproj")
+	t.Setenv(config.EnvControllerURL, srv.URL)
+	t.Setenv(config.EnvProjectID, "myproj")
 
 	cmd := &AgentStackDiffCmd{}
 	if err := cmd.Run(); err != nil {

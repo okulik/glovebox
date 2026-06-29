@@ -20,7 +20,7 @@ type SyncCmd struct {
 }
 
 func (c *SyncCmd) Run(kctx *kong.Context) error {
-	if c.All && os.Getenv("GBX_OVERRIDE_PID") != "" {
+	if c.All && os.Getenv(config.EnvOverridePID) != "" {
 		return errors.New("gbx sync: --all conflicts with -p <pid>")
 	}
 	stateDir := config.GbxFromEnv().StateDir
@@ -52,7 +52,7 @@ func (c *SyncCmd) Run(kctx *kong.Context) error {
 		pids = []string{pid}
 	}
 
-	libexec := os.Getenv("GBX_LIBEXEC")
+	libexec := os.Getenv(config.EnvLibexec)
 	if libexec == "" {
 		return errors.New("GBX_LIBEXEC not set (should be set by bin/gbx)")
 	}

@@ -24,8 +24,8 @@ func TestProjectUse(t *testing.T) {
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
+	t.Setenv(config.EnvConfigDir, dir)
+	t.Setenv(config.EnvStateDir, filepath.Join(dir, config.StatePath))
 	stdout, stderr, code := runCLI(t, "use", "aaaa")
 	if code != 0 {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)
@@ -44,8 +44,8 @@ func TestProjectUseUnknownPid(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
+	t.Setenv(config.EnvConfigDir, dir)
+	t.Setenv(config.EnvStateDir, filepath.Join(dir, config.StatePath))
 	_, stderr, code := runCLI(t, "use", "deadbeefdead")
 	if code == 0 {
 		t.Fatal("want non-zero exit for unknown pid")
@@ -60,8 +60,8 @@ func TestProjectLsEmpty(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
+	t.Setenv(config.EnvConfigDir, dir)
+	t.Setenv(config.EnvStateDir, filepath.Join(dir, config.StatePath))
 	stdout, _, code := runCLI(t, "ls")
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
@@ -86,8 +86,8 @@ func seedLsProject(t *testing.T) {
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
+	t.Setenv(config.EnvConfigDir, dir)
+	t.Setenv(config.EnvStateDir, filepath.Join(dir, config.StatePath))
 	fake := dockerx.NewFake()
 	fake.Containers[config.ContainerAgentPrefix+pid] = dockerx.FakeContainer{
 		ID: "id-agent", Image: "glovebox-agent:local", State: string(container.StateRunning), Status: "Up 2 hours",
@@ -180,8 +180,8 @@ func TestProjectRmYesFullId(t *testing.T) {
 		[]byte("/work/foo\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
+	t.Setenv(config.EnvConfigDir, dir)
+	t.Setenv(config.EnvStateDir, filepath.Join(dir, config.StatePath))
 	prevRm := removeAgentFn
 	t.Cleanup(func() { removeAgentFn = prevRm })
 	called := false
@@ -212,8 +212,8 @@ func TestProjectRmAmbiguousErrors(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, config.StatePath, config.ProjectsPath, "abcd22222222"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
+	t.Setenv(config.EnvConfigDir, dir)
+	t.Setenv(config.EnvStateDir, filepath.Join(dir, config.StatePath))
 	_, stderr, code := runCLI(t, "rm", "abcd", "--yes")
 	if code == 0 {
 		t.Fatal("want non-zero exit for ambiguous")
@@ -242,10 +242,10 @@ func stubLibexec(t *testing.T) string {
 
 func TestProjectNewRejectsMissingPath(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("GBX_CONFIG_DIR", dir)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(dir, config.StatePath))
-	t.Setenv("GBX_LIBEXEC", "/tmp/nonexistent-libexec")
-	t.Setenv("GBX_SKIP_STACK_UP", "1")
+	t.Setenv(config.EnvConfigDir, dir)
+	t.Setenv(config.EnvStateDir, filepath.Join(dir, config.StatePath))
+	t.Setenv(config.EnvLibexec, "/tmp/nonexistent-libexec")
+	t.Setenv(config.EnvSkipStackUp, "1")
 	_, stderr, code := runCLI(t, "new", "/this/does/not/exist/zz")
 	if code == 0 {
 		t.Fatal("want non-zero exit for missing path")
@@ -259,10 +259,10 @@ func TestProjectNewHappyPath(t *testing.T) {
 	cfg := t.TempDir()
 	ws := t.TempDir()
 	libexec := stubLibexec(t)
-	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, config.StatePath))
-	t.Setenv("GBX_LIBEXEC", libexec)
-	t.Setenv("GBX_SKIP_STACK_UP", "1")
+	t.Setenv(config.EnvConfigDir, cfg)
+	t.Setenv(config.EnvStateDir, filepath.Join(cfg, config.StatePath))
+	t.Setenv(config.EnvLibexec, libexec)
+	t.Setenv(config.EnvSkipStackUp, "1")
 	prev := ensureAgentFn
 	t.Cleanup(func() { ensureAgentFn = prev })
 	called := false

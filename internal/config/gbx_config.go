@@ -82,16 +82,16 @@ type GbxConfig struct {
 // sites that actually need the field (notably GBX_LIBEXEC).
 func GbxFromEnv() GbxConfig {
 	home, _ := os.UserHomeDir()
-	cfgDir := envOr("GBX_CONFIG_DIR", filepath.Join(home, ".config", "glovebox"))
-	stateDir := envOr("GBX_STATE_DIR", filepath.Join(cfgDir, "state"))
-	port := envOr("GBX_CONTROLLER_HOST_PORT", "17001")
+	cfgDir := envOr(EnvConfigDir, filepath.Join(home, ".config", "glovebox"))
+	stateDir := envOr(EnvStateDir, filepath.Join(cfgDir, "state"))
+	port := envOr(EnvControllerHostPort, "17001")
 	return GbxConfig{
-		Libexec:            os.Getenv("GBX_LIBEXEC"),
+		Libexec:            os.Getenv(EnvLibexec),
 		ConfigDir:          cfgDir,
 		StateDir:           stateDir,
 		ControllerHostPort: port,
-		ControllerURL:      envOr("GBX_CONTROLLER_URL", "http://127.0.0.1:"+port),
-		AgentImage:         envOr("GBX_AGENT_IMAGE", "glovebox-agent:local"),
-		TestMode:           os.Getenv("GBX_TEST_MODE") == "1",
+		ControllerURL:      envOr(EnvControllerURL, "http://127.0.0.1:"+port),
+		AgentImage:         envOr(EnvAgentImage, "glovebox-agent:local"),
+		TestMode:           os.Getenv(EnvTestMode) == "1",
 	}
 }

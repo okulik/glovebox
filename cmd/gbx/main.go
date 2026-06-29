@@ -18,7 +18,7 @@ import (
 // is already set, it is preserved. The Homebrew formula sets GBX_LIBEXEC
 // explicitly via bin.write_env_script and that value wins.
 func resolveLibexec() {
-	if os.Getenv("GBX_LIBEXEC") != "" {
+	if os.Getenv(config.EnvLibexec) != "" {
 		return
 	}
 	exe, err := os.Executable()
@@ -29,7 +29,7 @@ func resolveLibexec() {
 	if err != nil {
 		resolved = exe
 	}
-	os.Setenv("GBX_LIBEXEC", filepath.Dir(filepath.Dir(resolved)))
+	os.Setenv(config.EnvLibexec, filepath.Dir(filepath.Dir(resolved)))
 }
 
 //nolint:govet // fieldalignment: Kong-driven layout; readability over packing.
@@ -108,7 +108,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "gbx:", err)
 			os.Exit(1)
 		}
-		os.Setenv("GBX_OVERRIDE_PID", full)
+		os.Setenv(config.EnvOverridePID, full)
 		args = args[2:]
 		if len(args) == 0 {
 			printUsage()
@@ -150,7 +150,7 @@ func runKong(args []string) {
 			fmt.Fprintln(os.Stderr, "gbx:", perr)
 			os.Exit(1)
 		}
-		os.Setenv("GBX_OVERRIDE_PID", full)
+		os.Setenv(config.EnvOverridePID, full)
 	}
 	if err := ctx.Run(); err != nil {
 		ctx.FatalIfErrorf(err)

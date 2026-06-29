@@ -195,7 +195,7 @@ type ProjectNewCmd struct {
 }
 
 func (c *ProjectNewCmd) Run(kctx *kong.Context) error {
-	libexec := os.Getenv("GBX_LIBEXEC")
+	libexec := os.Getenv(config.EnvLibexec)
 	if libexec == "" {
 		return errors.New("GBX_LIBEXEC not set (should be set by bin/gbx)")
 	}
@@ -207,7 +207,7 @@ func (c *ProjectNewCmd) Run(kctx *kong.Context) error {
 	// docker create runs. Tests stub this out by setting GBX_SKIP_STACK_UP=1
 	// - they don't have docker available and inject a fake EnsureAgent
 	// instead.
-	if os.Getenv("GBX_SKIP_STACK_UP") != "1" {
+	if os.Getenv(config.EnvSkipStackUp) != "1" {
 		if err := requireDocker(); err != nil {
 			return err
 		}

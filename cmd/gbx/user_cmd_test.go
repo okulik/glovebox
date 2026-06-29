@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 )
 
@@ -15,7 +16,7 @@ func withFakeDocker(t *testing.T) *dockerx.FakeHost {
 	fh := dockerx.NewFakeHost()
 	hostDocker = fh
 	hostClient = dockerx.NewFake()
-	t.Setenv("GBX_LIBEXEC", t.TempDir())
+	t.Setenv(config.EnvLibexec, t.TempDir())
 	t.Cleanup(func() { hostDocker = nil; hostClient = nil })
 	return fh
 }

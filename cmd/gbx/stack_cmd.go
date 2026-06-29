@@ -36,10 +36,10 @@ type StackCmd struct {
 // share the same pid selector as the rest of the CLI. Returns an actionable
 // error when none is set, rather than defaulting to the literal "default".
 func stackPID() (string, error) {
-	if p := os.Getenv("GBX_OVERRIDE_PID"); p != "" {
+	if p := os.Getenv(config.EnvOverridePID); p != "" {
 		return p, nil
 	}
-	if p := os.Getenv("GBX_PROJECT_ID"); p != "" {
+	if p := os.Getenv(config.EnvProjectID); p != "" {
 		return p, nil
 	}
 	pid, err := state.ActivePID(config.GbxFromEnv().ConfigDir)
@@ -270,7 +270,7 @@ type StackImageAllowCmd struct {
 }
 
 func (c *StackImageAllowCmd) Run(kctx *kong.Context) error {
-	libexec := os.Getenv("GBX_LIBEXEC")
+	libexec := os.Getenv(config.EnvLibexec)
 	if libexec == "" {
 		return errors.New("GBX_LIBEXEC not set")
 	}

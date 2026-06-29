@@ -33,9 +33,9 @@ func setupMountTestProject(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(cfg, config.ActiveProjectPath), []byte(pid+"\n"+wsResolved+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("GBX_CONFIG_DIR", cfg)
-	t.Setenv("GBX_STATE_DIR", filepath.Join(cfg, "state"))
-	t.Setenv("GBX_OVERRIDE_PID", "")
+	t.Setenv(config.EnvConfigDir, cfg)
+	t.Setenv(config.EnvStateDir, filepath.Join(cfg, "state"))
+	t.Setenv(config.EnvOverridePID, "")
 	_ = pid
 	return t.TempDir()
 }
