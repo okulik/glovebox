@@ -16,13 +16,13 @@ import (
 // the agent container. Five npm-installed agents go through ${NPM_PREFIX}/bin,
 // two uv-installed agents go through ${UV_BIN_DIR}.
 var agentTable = map[string]string{
-	"claude":   "/home/gbx/.npm/bin/claude",
-	"codex":    "/home/gbx/.npm/bin/codex",
-	"gemini":   "/home/gbx/.npm/bin/gemini",
-	"opencode": "/home/gbx/.npm/bin/opencode",
-	"pi":       "/home/gbx/.npm/bin/pi",
-	"aider":    "/home/gbx/.local/bin/aider",
-	"hermes":   "/home/gbx/.local/bin/hermes",
+	"claude":   agent.HomeNpm + "/bin/claude",
+	"codex":    agent.HomeNpm + "/bin/codex",
+	"gemini":   agent.HomeNpm + "/bin/gemini",
+	"opencode": agent.HomeNpm + "/bin/opencode",
+	"pi":       agent.HomeNpm + "/bin/pi",
+	"aider":    agent.HomeLocalBin + "/aider",
+	"hermes":   agent.HomeLocalBin + "/hermes",
 }
 
 // agentNames returns the wrapped agent names in sorted order, so help text
@@ -79,10 +79,10 @@ func resolveAgent(name string) (string, error) {
 // shouldChdir reports whether a wrapper should chdir to /workspace. Returns
 // true unless pwd is already under /workspace.
 func shouldChdir(pwd string) bool {
-	if pwd == "/workspace" {
+	if pwd == agent.WorkspaceDir {
 		return false
 	}
-	if strings.HasPrefix(pwd, "/workspace/") {
+	if strings.HasPrefix(pwd, agent.WorkspaceDir+"/") {
 		return false
 	}
 	return true
@@ -105,8 +105,8 @@ func dispatchWith(r runner, invoked string, args []string, pwd string) error {
 	}
 
 	if shouldChdir(pwd) {
-		if err := os.Chdir("/workspace"); err != nil {
-			return fmt.Errorf("chdir /workspace: %w", err)
+		if err := os.Chdir(agent.WorkspaceDir); err != nil {
+			return fmt.Errorf("chdir %s: %w", agent.WorkspaceDir, err)
 		}
 	}
 

@@ -156,9 +156,9 @@ func (claude) export(srcDir, root, pid, workspace string) (int, error) {
 		if !e.IsDir() {
 			continue
 		}
-		// The in-sandbox cwd-slug is "-workspace" (or "-workspace-<sub>" when the
-		// agent ran from a subdir).
-		suffix := strings.TrimPrefix(e.Name(), "-workspace")
+		// The in-sandbox cwd-slug is Slugify(WorkspaceDir) (or that plus a
+		// "-<sub>" suffix when the agent ran from a subdir).
+		suffix := strings.TrimPrefix(e.Name(), Slugify(agent.WorkspaceDir))
 		destDir := filepath.Join(root, "projects", baseSlug+suffix)
 		n, err := copyRewriteJSONL(filepath.Join(projectsSrc, e.Name()), destDir, newRoot)
 		if err != nil {
@@ -211,7 +211,7 @@ func copyRewriteJSONL(srcDir, destDir, newRoot string) (int, error) {
 // a `"cwd":"/workspace"` field (or "/workspace/<sub>"); we repoint just that
 // field to newRoot so the viewer attributes the session correctly.
 func rewriteCwd(data []byte, newRoot string) []byte {
-	old := []byte(`"cwd":"/workspace`)
+	old := []byte(`"cwd":"` + agent.WorkspaceDir)
 	neu := []byte(`"cwd":"` + newRoot)
 	return bytes.ReplaceAll(data, old, neu)
 }

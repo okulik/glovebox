@@ -60,7 +60,7 @@ func (c *RunCmd) Run() error {
 		Container:   cname,
 		Interactive: interactiveStdio(),
 		User:        agent.HostUser(),
-		Workdir:     "/workspace",
+		Workdir:     agent.WorkspaceDir,
 		Argv:        args,
 	})
 	if err != nil {
