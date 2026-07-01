@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 )
 
@@ -10,6 +12,7 @@ import (
 // invocation.
 func printUsage() {
 	cfg := config.GbxFromEnv().ConfigDir
+	agents := strings.Join(agent.Names, ", ")
 	fmt.Printf(`Usage: gbx [-p <id>] <command> [args]
 
 Projects (target the default project unless -p <id> is given):
@@ -55,8 +58,7 @@ Projects (target the default project unless -p <id> is given):
 Agents:
   run                                Drop into a bash shell inside the agent.
   run [--] <cmd...>                  Run a one-shot command.
-  run <agent> [args...]              Launch one of: claude, codex, opencode,
-                                     pi, gemini, aider, hermes.
+  run <agent> [args...]              Launch one of: %s.
   update <agent>                     Update an agent inside the container.
   logs [proxy]                       Tail the shared egress-proxy access log.
   export-conversations [--all] [--harness <name>] [--copy]
@@ -71,7 +73,7 @@ Global:
   help                               Show this message.
 
 Config dir: %s
-`, cfg)
+`, agents, cfg)
 }
 
 // printMountUsage prints the `gbx mount --help` / `-h` help.

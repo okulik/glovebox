@@ -12,6 +12,7 @@ import (
 
 	"github.com/alecthomas/kong"
 
+	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/plugin"
@@ -220,7 +221,7 @@ func (c *ProjectStateSizeCmd) Run(kctx *kong.Context) error {
 	projDir := filepath.Join(config.GbxFromEnv().StateDir, config.ProjectsPath, pid)
 	fmt.Fprintf(kctx.Stdout, "PROJECT %s\n", pid)
 	fmt.Fprintf(kctx.Stdout, "%-12s %s\n", "DIR", "SIZE")
-	for _, d := range []string{"claude", "codex", "opencode", "pi", "gemini", "aider", "hermes"} {
+	for _, d := range agent.Names {
 		path := filepath.Join(projDir, d)
 		if _, err := os.Stat(path); err == nil {
 			size := duHuman(path)

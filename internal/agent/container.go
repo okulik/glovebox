@@ -56,8 +56,7 @@ func Ensure(ctx context.Context, spec EnsureSpec) error {
 	}
 	cname := config.ContainerAgentPrefix + spec.Create.PID
 
-	subdirs := []string{"claude", "codex", "opencode", "pi", "gemini", "aider", "hermes"}
-	for _, s := range subdirs {
+	for _, s := range Names {
 		if err := os.MkdirAll(filepath.Join(spec.Create.StateProjDir, s), 0o755); err != nil {
 			return fmt.Errorf("create state subdir %s: %w", s, err)
 		}

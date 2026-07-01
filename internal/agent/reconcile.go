@@ -48,7 +48,7 @@ func ReconcileState(stateProjDir, dockerDir string) ([]string, error) {
 		changed = append(changed, "claude/statusline-command.sh")
 	}
 
-	instrFiles := []string{"claude/CLAUDE.md", "codex/AGENTS.md", "gemini/GEMINI.md"}
+	instrFiles := AgentInstructionTargets
 	before := make(map[string][]byte, len(instrFiles))
 	for _, rel := range instrFiles {
 		before[rel], _ = os.ReadFile(filepath.Join(stateProjDir, rel))

@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 )
 
@@ -29,7 +30,9 @@ type Result struct {
 	Note    string
 }
 
-var HarnessNames = []string{"claude", "codex", "gemini", "opencode", "aider", "pi", "hermes"}
+// HarnessNames is the set of harnesses export knows about - the canonical
+// agent set. Only claude is implemented today; the rest are scaffolded.
+var HarnessNames = agent.Names
 
 // harness knows how to relocate one agent's in-sandbox logs onto the host.
 type harness interface {
@@ -42,14 +45,20 @@ type harness interface {
 	export(srcDir, root, pid, workspace string, doCopy bool) (int, error)
 }
 
+// registry builds one exporter per known agent, derived from the canonical set
+// so it can't drift. Claude is the only real exporter; the rest are scaffolds
+// that each still need a host root + provenance scheme (and real sample data)
+// before they can be enabled.
 func registry() []harness {
-	return []harness{
-		claude{},
-		// Scaffolded - each needs its own host root + provenance scheme, and
-		// real glovebox sample data to verify against before enabling.
-		unsupported("codex"), unsupported("gemini"), unsupported("opencode"),
-		unsupported("aider"), unsupported("pi"), unsupported("hermes"),
+	out := make([]harness, 0, len(agent.Names))
+	for _, name := range agent.Names {
+		if name == "claude" {
+			out = append(out, claude{})
+			continue
+		}
+		out = append(out, unsupported(name))
 	}
+	return out
 }
 
 // ExportProject exports one project's conversation logs.

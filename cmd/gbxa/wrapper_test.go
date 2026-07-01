@@ -4,9 +4,27 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+
+	"github.com/okulik/glovebox/internal/agent"
 )
+
+// agentTable's key set must equal the canonical agent.Names, so the in-container
+// dispatch allowlist can't drift from the rest of the codebase.
+func TestAgentTableMatchesNames(t *testing.T) {
+	got := make([]string, 0, len(agentTable))
+	for k := range agentTable {
+		got = append(got, k)
+	}
+	want := append([]string(nil), agent.Names...)
+	sort.Strings(got)
+	sort.Strings(want)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("agentTable keys = %v, want %v", got, want)
+	}
+}
 
 // fakeRunner records exec calls and simulates install/exec results.
 type fakeRunner struct {

@@ -49,7 +49,7 @@ func TestEnsureCreatesAndStartsWhenContainerAbsent(t *testing.T) {
 	if c.Image != "glovebox-agent:local" {
 		t.Errorf("container image = %q", c.Image)
 	}
-	for _, sub := range []string{"claude", "codex", "opencode", "pi", "gemini", "aider", "hermes"} {
+	for _, sub := range agent.Names {
 		if _, err := os.Stat(filepath.Join(spec.Create.StateProjDir, sub)); err != nil {
 			t.Errorf("subdir not created: %s: %v", sub, err)
 		}
