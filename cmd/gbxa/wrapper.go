@@ -89,8 +89,7 @@ func shouldChdir(pwd string) bool {
 }
 
 // dispatch is the entry point: read argv[0], look up the real binary, ensure
-// it's installed, and exec it with the remaining args. Cwd defense and env
-// pass-through match the bash wrappers.
+// it's installed, and exec it with the remaining args.
 func dispatch() error {
 	pwd, _ := os.Getwd()
 	return dispatchWith(realRunner{}, os.Args[0], os.Args[1:], pwd)

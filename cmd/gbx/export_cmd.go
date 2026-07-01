@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
+	"github.com/okulik/glovebox/internal/agent"
 	"github.com/okulik/glovebox/internal/config"
 	"github.com/okulik/glovebox/internal/convexport"
 )
@@ -21,7 +22,6 @@ type ExportConversationsCmd struct {
 	Harness string `name:"harness" help:"Limit to one harness (claude, codex, gemini, opencode, aider, pi, hermes). Default: all."`
 	All     bool   `name:"all" help:"Export every registered project (default: the active/-p project)."`
 	Dest    string `name:"dest" type:"path" help:"Override the destination root (requires --harness; default is the harness's native dir, e.g. ~/.claude)."`
-	Copy    bool   `name:"copy" help:"Copy the logs instead of symlinking them (a standalone snapshot; re-run to refresh)."`
 }
 
 func (c *ExportConversationsCmd) Run(kctx *kong.Context) error {
@@ -31,8 +31,8 @@ func (c *ExportConversationsCmd) Run(kctx *kong.Context) error {
 	if c.Dest != "" && c.Harness == "" {
 		return errors.New("--dest requires --harness (each harness has its own destination root)")
 	}
-	if c.Harness != "" && !slices.Contains(convexport.HarnessNames, c.Harness) {
-		return fmt.Errorf("unknown harness %q; valid: %s", c.Harness, strings.Join(convexport.HarnessNames, ", "))
+	if c.Harness != "" && !slices.Contains(agent.Names, c.Harness) {
+		return fmt.Errorf("unknown harness %q; valid: %s", c.Harness, strings.Join(agent.Names, ", "))
 	}
 
 	home, err := os.UserHomeDir()
@@ -68,14 +68,10 @@ func (c *ExportConversationsCmd) Run(kctx *kong.Context) error {
 		pids = []string{pid}
 	}
 
-	verb, Verb := "linked", "Linked"
-	if c.Copy {
-		verb, Verb = "copied", "Copied"
-	}
 	files := 0
 	skipped := map[string]bool{}
 	for _, pid := range pids {
-		results, err := convexport.ExportProject(stateDir, home, pid, c.Harness, c.Dest, c.Copy)
+		results, err := convexport.ExportProject(stateDir, home, pid, c.Harness, c.Dest)
 		if err != nil {
 			return err
 		}
@@ -83,8 +79,8 @@ func (c *ExportConversationsCmd) Run(kctx *kong.Context) error {
 			switch r.Status {
 			case convexport.StatusExported:
 				files += r.Files
-				fmt.Fprintf(kctx.Stdout, "%s  %-9s %s %d session(s) → %s\n",
-					pid, r.Harness, verb, r.Files, filepath.Join(r.DestDir, "projects"))
+				fmt.Fprintf(kctx.Stdout, "%s  %-9s %d session(s) → %s\n",
+					pid, r.Harness, r.Files, filepath.Join(r.DestDir, "projects"))
 			case convexport.StatusUnsupported:
 				skipped[r.Harness] = true
 			}
@@ -94,7 +90,7 @@ func (c *ExportConversationsCmd) Run(kctx *kong.Context) error {
 	if files == 0 {
 		fmt.Fprintln(kctx.Stdout, "No conversations found to export.")
 	} else {
-		fmt.Fprintf(kctx.Stdout, "\n%s %d session file(s).\n", Verb, files)
+		fmt.Fprintf(kctx.Stdout, "\nExported %d session file(s).\n", files)
 	}
 	if len(skipped) > 0 {
 		names := make([]string, 0, len(skipped))

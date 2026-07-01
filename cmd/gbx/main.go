@@ -53,7 +53,7 @@ type CLI struct {
 	Sync                SyncCmd                      `cmd:"" help:"Reconcile managed agent state from current defaults (no container recreate)."`
 	Run                 RunCmd                       `cmd:"" help:"Run a command in the active project's agent (or drop into a shell)."`
 	Rm                  ProjectRmCmd                 `cmd:"" help:"Stop and remove a project's agent."`
-	ExportConversations ExportConversationsCmd       `cmd:"" name:"export-conversations" help:"Surface in-sandbox agent conversation logs on the host for AgentsView etc. (symlinks; --copy snapshots)."`
+	ExportConversations ExportConversationsCmd       `cmd:"" name:"export-conversations" help:"Copy in-sandbox agent conversation logs to the host for AgentsView etc. (tagged as project gbx_<pid>_<name>)."`
 	Version             kong.VersionFlag             `help:"Print the gbx version and exit."`
 	InstallCompletions  kongplete.InstallCompletions `cmd:"" name:"install-completions" help:"Emit a shell completion script (bash, zsh, fish). Redirect to your shell's completion file."`
 }

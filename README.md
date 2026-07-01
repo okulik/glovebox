@@ -145,7 +145,7 @@ use the global `-p` flag to target a non-default one.
 | `gbx new <path>`                                              | Register a workspace; create its agent; first project becomes the default. |
 | `gbx use <id-or-prefix>`                                      | Switch the default project pointer.                                      |
 | `gbx ls [-v] [--json]`                                        | List projects (`*` marks default). `-v` adds containers; `--json` emits structured output. |
-| `gbx rm <id> [--delete-state] [-y]`                           | Stop and remove a project's agent. State dir kept unless `--delete-state` (which also prunes any exported symlinks). |
+| `gbx rm <id> [--delete-state] [-y]`                           | Stop and remove a project's agent. State dir kept unless `--delete-state`. |
 | `gbx rm --all [--delete-state] [-y]`                          | Remove every registered project. Same state-dir rule as the single-pid form. |
 | `gbx start\|stop\|restart [<id>]`                             | Per-project agent lifecycle.                                             |
 | `gbx rebuild [<id>] [--all]`                                  | Rebuild `glovebox-agent:local` and recreate the agent.                   |
@@ -262,33 +262,30 @@ Surfaces the agent conversation logs written *inside* the sandbox at the
 host locations that desktop viewers (AgentsView and friends) already scan.
 The logs aren't hidden - glovebox bind-mounts each agent's home
 (`~/.claude`, `~/.codex`, ...) from `state/projects/<pid>/<agent>/`, so they
-persist on disk. The problem is that every sandbox runs with `cwd=/workspace`,
-so a harness that keys sessions by working directory (Claude Code) files them
-all under one ambiguous `-workspace` folder, indistinguishable across projects.
+persist on disk. But every sandbox runs with `cwd=/workspace`, and viewers
+derive a session's project from its recorded working directory - so left as-is
+every glovebox project collapses into one ambiguous `workspace` project.
 
-This command re-files them under a synthetic
-`/glovebox/<pid>/<real-workspace>` path, so each project's sessions land in a
-unique, obviously-glovebox folder that never collides - even if two projects
-ran from the same host workspace:
+This command copies each session into the viewer's native directory and
+**rewrites the recorded cwd** to a synthetic, glovebox-tagged path
+`.../gbx-<pid>-<name>`. The viewer then shows it as a distinct project named
+`gbx_<pid>_<name>` - obviously glovebox, unique per project (collision-proof
+even if two projects ran from the same host workspace), and sitting beside the
+real one. For a workspace `~/dev/projects/gwook` and pid `030d91f1f47b`:
 
 ```
-~/.claude/projects/-glovebox-<pid>-Users-you-code-myapp/<session>.jsonl
+~/.claude/projects/-Users-you-dev-projects-gbx-030d91f1f47b-gwook/<session>.jsonl
+   → shows in AgentsView as project  gbx_030d91f1f47b_gwook
 ```
 
-By default the sessions are **symlinked** into each harness's native host
-directory, so new turns show up in the viewer without re-exporting. Pass
-`--copy` for a standalone snapshot instead (independent of the state dir; safe
-to archive or move). Re-running is idempotent and switches an entry's mode.
-
-`gbx rm <id> --delete-state` prunes the symlinks it finds for that project (they
-would otherwise dangle once the state dir is gone); `--copy` snapshots are left
-untouched. Exports sent to a custom `--dest` aren't tracked, so aren't cleaned.
+Copies are standalone (only the cwd field is touched; other `/workspace`
+mentions are left as the agent saw them). Re-running is idempotent - it
+refreshes the copies to pick up new turns.
 
 | Flag | Purpose |
 |---|---|
 | `--all` | Export every registered project (default: the active / `-p` project). |
 | `--harness <name>` | Limit to one harness (`claude`, `codex`, ...). Default: all. |
-| `--copy` | Copy the logs instead of symlinking them. |
 | `--dest <dir>` | Override the destination root (requires `--harness`). |
 
 ```bash
@@ -297,7 +294,9 @@ gbx -p 1a2b3c export-conversations  # just one project
 ```
 
 Then point AgentsView at `~/.claude`; the exported chats appear as
-`glovebox-<pid>-...` projects alongside your native ones.
+`gbx_<pid>_<name>` projects alongside your native ones. Because the copies are
+self-contained, they also survive `gbx rm --delete-state` - after the state dir
+is gone they are the only remaining record of those sessions.
 
 > Only **Claude Code** export is implemented today. The other bundled harnesses
 > (codex, gemini, opencode, aider, pi, hermes) are recognized but skipped with a

@@ -61,10 +61,10 @@ Agents:
   run <agent> [args...]              Launch one of: %s.
   update <agent>                     Update an agent inside the container.
   logs [proxy]                       Tail the shared egress-proxy access log.
-  export-conversations [--all] [--harness <name>] [--copy]
-                                     Surface in-sandbox agent conversation logs
-                                     on the host (e.g. ~/.claude) for AgentsView.
-                                     Symlinks by default; --copy snapshots.
+  export-conversations [--all] [--harness <name>]
+                                     Copy in-sandbox agent conversation logs to
+                                     the host (e.g. ~/.claude) for AgentsView,
+                                     tagged as project gbx_<pid>_<name>.
 
 Global:
   up                                 Bring the singleton egress-proxy +

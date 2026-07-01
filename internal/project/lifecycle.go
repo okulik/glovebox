@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/okulik/glovebox/internal/config"
-	"github.com/okulik/glovebox/internal/convexport"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/hostconfig"
 	"github.com/okulik/glovebox/internal/state"
@@ -37,8 +36,9 @@ type NewResult struct {
 	AlreadyRegistered bool
 }
 
-// New ports cmd_project_new: validate path, bootstrap, compute pid, write
-// workspace-path, ensure agent, set default if none exists.
+// New validates the workspace path, bootstraps config, computes the pid, writes
+// workspace-path, ensures the agent, and sets the project as default when none
+// exists yet.
 func New(ctx context.Context, spec NewSpec) (NewResult, error) {
 	abs, err := filepath.Abs(spec.Workspace)
 	if err != nil {
@@ -49,8 +49,8 @@ func New(ctx context.Context, spec NewSpec) (NewResult, error) {
 	} else if !fi.IsDir() {
 		return NewResult{}, fmt.Errorf("not a directory: %s", abs)
 	}
-	// Match bash `readlink -f`: resolve symlinks so the recorded workspace
-	// path matches what Hash sees (e.g. /var → /private/var on macOS).
+	// Resolve symlinks so the recorded workspace path matches what Hash sees
+	// (e.g. /var → /private/var on macOS).
 	if resolved, slErr := filepath.EvalSymlinks(abs); slErr == nil {
 		abs = resolved
 	}
@@ -97,7 +97,7 @@ func New(ctx context.Context, spec NewSpec) (NewResult, error) {
 	return res, nil
 }
 
-// Use ports cmd_project_use: resolve prefix, write active-project.
+// Use resolves the prefix and writes the active-project pointer.
 func Use(configDir, prefix string) error {
 	stateDir := filepath.Join(configDir, config.StatePath)
 	pid, err := Resolve(stateDir, prefix)
@@ -150,12 +150,6 @@ func Remove(ctx context.Context, spec RemoveSpec) error {
 	if spec.DeleteState {
 		if err := os.RemoveAll(filepath.Join(stateDir, config.ProjectsPath, pid)); err != nil {
 			return fmt.Errorf("remove state: %w", err)
-		}
-		// Exported symlinks (gbx export-conversations) point into the state dir
-		// we just removed, so they now dangle - prune them best-effort. Copies
-		// are standalone and left alone.
-		if home, err := os.UserHomeDir(); err == nil {
-			_, _ = convexport.RemoveExports(home, pid)
 		}
 	}
 	curPID, _ := state.ActivePID(spec.ConfigDir)

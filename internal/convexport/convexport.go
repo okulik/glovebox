@@ -1,9 +1,9 @@
 package convexport
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -30,25 +30,19 @@ type Result struct {
 	Note    string
 }
 
-// HarnessNames is the set of harnesses export knows about - the canonical
-// agent set. Only claude is implemented today; the rest are scaffolded.
-var HarnessNames = agent.Names
-
 // harness knows how to relocate one agent's in-sandbox logs onto the host.
 type harness interface {
 	name() string
 	supported() bool
 	// destRoot is the native host root for this harness (e.g. ~/.claude).
 	destRoot(home string) string
-	// export transfers logs from srcDir (=<proj>/<harness>) into root, tagging
-	// them with the project's pid and real host workspace.
-	export(srcDir, root, pid, workspace string, doCopy bool) (int, error)
+	// export copies logs from srcDir (=<proj>/<harness>) into root, rewriting
+	// them so the viewer attributes each session to a glovebox-tagged project.
+	export(srcDir, root, pid, workspace string) (int, error)
 }
 
 // registry builds one exporter per known agent, derived from the canonical set
-// so it can't drift. Claude is the only real exporter; the rest are scaffolds
-// that each still need a host root + provenance scheme (and real sample data)
-// before they can be enabled.
+// so it can't drift.
 func registry() []harness {
 	out := make([]harness, 0, len(agent.Names))
 	for _, name := range agent.Names {
@@ -62,7 +56,7 @@ func registry() []harness {
 }
 
 // ExportProject exports one project's conversation logs.
-func ExportProject(stateDir, home, pid, only, destOverride string, doCopy bool) ([]Result, error) {
+func ExportProject(stateDir, home, pid, only, destOverride string) ([]Result, error) {
 	projDir := filepath.Join(stateDir, config.ProjectsPath, pid)
 	workspace := readWorkspace(projDir)
 
@@ -91,7 +85,7 @@ func ExportProject(stateDir, home, pid, only, destOverride string, doCopy bool) 
 		if root == "" {
 			root = h.destRoot(home)
 		}
-		n, err := h.export(srcDir, root, pid, workspace, doCopy)
+		n, err := h.export(srcDir, root, pid, workspace)
 		if err != nil {
 			return results, fmt.Errorf("export %s for project %s: %w", h.name(), pid, err)
 		}
@@ -107,81 +101,23 @@ func ExportProject(stateDir, home, pid, only, destOverride string, doCopy bool) 
 	return results, nil
 }
 
-// RemoveExports deletes the symlinks a prior export created for one project,
-// across every harness's host root, and prunes any folders left empty.
-func RemoveExports(home, pid string) (int, error) {
-	base := Slugify(syntheticBase(pid, "")) // "-glovebox-<pid>"
-	removed := 0
-	var firstErr error
-	note := func(err error) {
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-
-	for _, h := range registry() {
-		root := h.destRoot(home)
-		if root == "" {
-			continue
-		}
-		projectsDir := filepath.Join(root, "projects")
-		entries, err := os.ReadDir(projectsDir)
-		if err != nil {
-			continue // no exports for this harness
-		}
-		for _, e := range entries {
-			// A project's sessions live under "-glovebox-<pid>" exactly, or
-			// "-glovebox-<pid>-<...>" for a real workspace / subdir.
-			if e.Name() != base && !strings.HasPrefix(e.Name(), base+"-") {
-				continue
-			}
-			dir := filepath.Join(projectsDir, e.Name())
-			n, err := removeSymlinksAndPrune(dir)
-			note(err)
-			removed += n
-		}
-	}
-	return removed, firstErr
-}
-
-// removeSymlinksAndPrune deletes symlink entries directly under dir and removes
-// dir itself if that leaves it empty (a copy left behind keeps the dir).
-func removeSymlinksAndPrune(dir string) (int, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return 0, err
-	}
-	removed := 0
-	var firstErr error
-	for _, e := range entries {
-		if e.Type()&fs.ModeSymlink == 0 {
-			continue
-		}
-		if err := os.Remove(filepath.Join(dir, e.Name())); err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
-			continue
-		}
-		removed++
-	}
-	// Prune the dir only if nothing (copies, other files) remains.
-	if rest, err := os.ReadDir(dir); err == nil && len(rest) == 0 {
-		_ = os.Remove(dir)
-	}
-	return removed, firstErr
-}
-
 // Slugify encodes a path the way Claude Code names its project folders: every
 // non-alphanumeric character becomes a dash. So "/workspace" -> "-workspace".
 func Slugify(p string) string { return nonAlnum.ReplaceAllString(p, "-") }
 
 var nonAlnum = regexp.MustCompile(`[^a-zA-Z0-9]`)
 
-// syntheticBase is the absolute path whose slug tags a project's exported
-// sessions: "/glovebox/<pid>" followed by the real workspace path.
-func syntheticBase(pid, workspace string) string {
-	return "/glovebox/" + pid + workspace
+// provenanceRoot is the host path that a project's in-sandbox cwd (/workspace)
+// is rewritten to. Viewers like AgentsView derive the project name from the
+// basename of a session's cwd, so we tag that basename with "gbx-<pid>-":
+//
+//	/Users/you/code/gwook  ->  /Users/you/code/gbx-<pid>-gwook
+func provenanceRoot(pid, workspace string) string {
+	tag := "gbx-" + pid
+	if workspace == "" {
+		return "/" + tag
+	}
+	return filepath.Join(filepath.Dir(workspace), tag+"-"+filepath.Base(workspace))
 }
 
 // readWorkspace returns the project's real host workspace path, or "" if the
@@ -203,7 +139,7 @@ func (claude) name() string                { return "claude" }
 func (claude) supported() bool             { return true }
 func (claude) destRoot(home string) string { return filepath.Join(home, ".claude") }
 
-func (claude) export(srcDir, root, pid, workspace string, doCopy bool) (int, error) {
+func (claude) export(srcDir, root, pid, workspace string) (int, error) {
 	projectsSrc := filepath.Join(srcDir, "projects")
 	entries, err := os.ReadDir(projectsSrc)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -213,16 +149,18 @@ func (claude) export(srcDir, root, pid, workspace string, doCopy bool) (int, err
 		return 0, err
 	}
 
-	baseSlug := Slugify(syntheticBase(pid, workspace))
+	newRoot := provenanceRoot(pid, workspace)
+	baseSlug := Slugify(newRoot)
 	total := 0
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		// "-workspace" -> "", "-workspace-frontend" -> "-frontend".
+		// The in-sandbox cwd-slug is "-workspace" (or "-workspace-<sub>" when the
+		// agent ran from a subdir).
 		suffix := strings.TrimPrefix(e.Name(), "-workspace")
 		destDir := filepath.Join(root, "projects", baseSlug+suffix)
-		n, err := transferJSONL(filepath.Join(projectsSrc, e.Name()), destDir, doCopy)
+		n, err := copyRewriteJSONL(filepath.Join(projectsSrc, e.Name()), destDir, newRoot)
 		if err != nil {
 			return total, err
 		}
@@ -237,15 +175,19 @@ type unsupported string
 func (u unsupported) name() string         { return string(u) }
 func (unsupported) supported() bool        { return false }
 func (unsupported) destRoot(string) string { return "" }
-func (unsupported) export(string, string, string, string, bool) (int, error) {
+func (unsupported) export(string, string, string, string) (int, error) {
 	return 0, nil
 }
 
-// transferJSONL relocates every *.jsonl file from srcDir into destDir,
-// symlinking (doCopy=false) or copying, and returns the count transferred.
-func transferJSONL(srcDir, destDir string, doCopy bool) (int, error) {
+// copyRewriteJSONL copies every *.jsonl file from srcDir into destDir (creating
+// it, overwriting existing files), rewriting the in-sandbox cwd to newRoot, and
+// returns the count copied.
+func copyRewriteJSONL(srcDir, destDir, newRoot string) (int, error) {
 	entries, err := os.ReadDir(srcDir)
 	if err != nil {
+		return 0, err
+	}
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return 0, err
 	}
 	n := 0
@@ -253,9 +195,11 @@ func transferJSONL(srcDir, destDir string, doCopy bool) (int, error) {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
 			continue
 		}
-		src := filepath.Join(srcDir, e.Name())
-		dst := filepath.Join(destDir, e.Name())
-		if err := transferFile(src, dst, doCopy); err != nil {
+		data, err := os.ReadFile(filepath.Join(srcDir, e.Name()))
+		if err != nil {
+			return n, err
+		}
+		if err := os.WriteFile(filepath.Join(destDir, e.Name()), rewriteCwd(data, newRoot), 0o644); err != nil {
 			return n, err
 		}
 		n++
@@ -263,38 +207,11 @@ func transferJSONL(srcDir, destDir string, doCopy bool) (int, error) {
 	return n, nil
 }
 
-func transferFile(src, dst string, doCopy bool) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-	// Replace any prior export so copy<->symlink switches and re-runs are clean.
-	if err := os.Remove(dst); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-	if !doCopy {
-		// Absolute target so the link resolves regardless of the viewer's cwd.
-		abs, err := filepath.Abs(src)
-		if err != nil {
-			return err
-		}
-		return os.Symlink(abs, dst)
-	}
-	return copyFile(src, dst)
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-	return out.Close()
+// rewriteCwd retargets the sandbox cwd in a Claude session log. Records carry
+// a `"cwd":"/workspace"` field (or "/workspace/<sub>"); we repoint just that
+// field to newRoot so the viewer attributes the session correctly.
+func rewriteCwd(data []byte, newRoot string) []byte {
+	old := []byte(`"cwd":"/workspace`)
+	neu := []byte(`"cwd":"` + newRoot)
+	return bytes.ReplaceAll(data, old, neu)
 }

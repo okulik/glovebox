@@ -84,7 +84,7 @@ type ExecSpec struct {
 // NewHostClient returns the production Host backed by the moby SDK. It honors
 // DOCKER_HOST (via dockerclient.FromEnv) so OrbStack / Docker Desktop /
 // Colima just work without any extra glue. BuildImage is the one method
-// that still shells out to `docker build` - see the BuildImage comment.
+// that shells out to `docker build` - see the BuildImage comment.
 func NewHostClient() (HostClient, error) {
 	c, err := dockerclient.New(dockerclient.FromEnv)
 	if err != nil {
@@ -137,10 +137,9 @@ func buildCLIArgs(spec BuildSpec, created time.Time) []string {
 	return args
 }
 
-// BuildImage keeps shelling out to `docker build`. The CLI's build path is
-// what gives us BuildKit-by-default and a polished progress UI for free; the
-// SDK's ImageBuild returns a raw stream we'd have to parse and re-render to
-// match. This is the single intentional shell-out site after the migration.
+// BuildImage shells out to `docker build`. The CLI's build path is what gives
+// us BuildKit-by-default and a polished progress UI for free; the SDK's
+// ImageBuild returns a raw stream we'd have to parse and re-render to match.
 func (h *hostClient) BuildImage(ctx context.Context, spec BuildSpec) error {
 	//nolint:gosec // G204: docker subcommand args are built internally from a validated ContainerSpec, not user shell input.
 	cmd := exec.CommandContext(ctx, "docker", buildCLIArgs(spec, time.Now())...)

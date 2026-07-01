@@ -64,9 +64,9 @@ func (c *RunCmd) Run() error {
 		Argv:        args,
 	})
 	if err != nil {
-		// Both *exec.ExitError (BuildImage still shells out) and the
-		// dockerx.ExitError returned by the SDK-backed Exec satisfy this
-		// shape, so one check covers both paths.
+		// Both *exec.ExitError (BuildImage shells out) and the dockerx.ExitError
+		// returned by the SDK-backed Exec satisfy this shape, so one check covers
+		// both paths.
 		var ec interface{ ExitCode() int }
 		if errors.As(err, &ec) {
 			os.Exit(ec.ExitCode())
@@ -177,9 +177,7 @@ func (c *UpdateCmd) Run() error {
 	cname := config.ContainerAgentPrefix + pid
 
 	// Resolve the install argv on the host and exec it directly inside the
-	// container via the SDK. This used to round-trip through `gbxa update`,
-	// but with the Engine API we can drive the npm/uv invocation from here
-	// with one fewer hop and cleaner exit-code propagation.
+	// container via the SDK, which propagates the child's exit code cleanly.
 	argv, err := agent.UpdateArgv(ctx, c.Agent)
 	if err != nil {
 		return err

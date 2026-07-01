@@ -17,8 +17,7 @@ import (
 	"github.com/okulik/glovebox/internal/state"
 )
 
-// StackCmd is the `gbx stack ...` command group; mirrors the surface of the
-// retired bin/gbx-stack-host.
+// StackCmd is the `gbx stack ...` command group.
 type StackCmd struct {
 	Diff       StackDiffCmd       `cmd:"" help:"Show live vs proposed for a project."`
 	Ls         StackLsCmd         `cmd:"" help:"List all projects with stacks."`
