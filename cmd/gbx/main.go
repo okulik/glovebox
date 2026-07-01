@@ -34,27 +34,28 @@ func resolveLibexec() {
 
 //nolint:govet // fieldalignment: Kong-driven layout; readability over packing.
 type CLI struct {
-	Ls                 ProjectLsCmd                 `cmd:"" help:"List projects (* marks default)."`
-	Up                 UpCmd                        `cmd:"" help:"Bring the singleton egress-proxy + controller stack up (idempotent)."`
-	Stack              StackCmd                     `cmd:"" help:"Per-project dev-stack management."`
-	StateSize          ProjectStateSizeCmd          `cmd:"" name:"state-size" help:"Disk usage of one project + shared caches."`
-	Logs               LogsCmd                      `cmd:"" help:"Tail a stack component log: proxy (egress access) or controller (HTTP server)."`
-	PFlag              string                       `short:"p" name:"pid" placeholder:"PID" help:"Pid prefix; overrides default project for this call."`
-	Update             UpdateCmd                    `cmd:"" help:"Update an agent inside the active project's container."`
-	Start              ProjectStartCmd              `cmd:"" help:"Start the project's agent."`
-	Stop               ProjectStopCmd               `cmd:"" help:"Stop the project's agent."`
-	Use                ProjectUseCmd                `cmd:"" help:"Set the default project."`
-	Restart            ProjectRestartCmd            `cmd:"" help:"Restart the project's agent."`
-	New                ProjectNewCmd                `cmd:"" name:"new" help:"Register a project from a workspace path."`
-	Allow              AllowCmd                     `cmd:"" help:"Append a domain to the egress allowlist."`
-	Mount              ProjectMountCmd              `cmd:"" help:"Manage per-project extra bind mounts."`
-	Plugin             PluginCmd                    `cmd:"" help:"Manage per-project Dockerfile plugins (add/edit/ls/rm)."`
-	Rebuild            ProjectRebuildCmd            `cmd:"" help:"Rebuild the shared agent image and recreate the project's agent (or the stack-controller with --controller)."`
-	Sync               SyncCmd                      `cmd:"" help:"Reconcile managed agent state from current defaults (no container recreate)."`
-	Run                RunCmd                       `cmd:"" help:"Run a command in the active project's agent (or drop into a shell)."`
-	Rm                 ProjectRmCmd                 `cmd:"" help:"Stop and remove a project's agent."`
-	Version            kong.VersionFlag             `help:"Print the gbx version and exit."`
-	InstallCompletions kongplete.InstallCompletions `cmd:"" name:"install-completions" help:"Emit a shell completion script (bash, zsh, fish). Redirect to your shell's completion file."`
+	Ls                  ProjectLsCmd                 `cmd:"" help:"List projects (* marks default)."`
+	Up                  UpCmd                        `cmd:"" help:"Bring the singleton egress-proxy + controller stack up (idempotent)."`
+	Stack               StackCmd                     `cmd:"" help:"Per-project dev-stack management."`
+	StateSize           ProjectStateSizeCmd          `cmd:"" name:"state-size" help:"Disk usage of one project + shared caches."`
+	Logs                LogsCmd                      `cmd:"" help:"Tail a stack component log: proxy (egress access) or controller (HTTP server)."`
+	PFlag               string                       `short:"p" name:"pid" placeholder:"PID" help:"Pid prefix; overrides default project for this call."`
+	Update              UpdateCmd                    `cmd:"" help:"Update an agent inside the active project's container."`
+	Start               ProjectStartCmd              `cmd:"" help:"Start the project's agent."`
+	Stop                ProjectStopCmd               `cmd:"" help:"Stop the project's agent."`
+	Use                 ProjectUseCmd                `cmd:"" help:"Set the default project."`
+	Restart             ProjectRestartCmd            `cmd:"" help:"Restart the project's agent."`
+	New                 ProjectNewCmd                `cmd:"" name:"new" help:"Register a project from a workspace path."`
+	Allow               AllowCmd                     `cmd:"" help:"Append a domain to the egress allowlist."`
+	Mount               ProjectMountCmd              `cmd:"" help:"Manage per-project extra bind mounts."`
+	Plugin              PluginCmd                    `cmd:"" help:"Manage per-project Dockerfile plugins (add/edit/ls/rm)."`
+	Rebuild             ProjectRebuildCmd            `cmd:"" help:"Rebuild the shared agent image and recreate the project's agent (or the stack-controller with --controller)."`
+	Sync                SyncCmd                      `cmd:"" help:"Reconcile managed agent state from current defaults (no container recreate)."`
+	Run                 RunCmd                       `cmd:"" help:"Run a command in the active project's agent (or drop into a shell)."`
+	Rm                  ProjectRmCmd                 `cmd:"" help:"Stop and remove a project's agent."`
+	ExportConversations ExportConversationsCmd       `cmd:"" name:"export-conversations" help:"Surface in-sandbox agent conversation logs on the host for AgentsView etc. (symlinks; --copy snapshots)."`
+	Version             kong.VersionFlag             `help:"Print the gbx version and exit."`
+	InstallCompletions  kongplete.InstallCompletions `cmd:"" name:"install-completions" help:"Emit a shell completion script (bash, zsh, fish). Redirect to your shell's completion file."`
 }
 
 func main() {

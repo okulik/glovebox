@@ -20,27 +20,15 @@ import (
 )
 
 // ImageCreatedLabelFormat renders ISO-8601 UTC with millisecond precision,
-// e.g. 2024-09-09T14:16:46.786Z. The label key itself is config.LabelImageCreated:
-// it is stamped on every image BuildImage produces, with the build time as its
-// value. Containers inherit image labels, so `gbx ls -v` shows which build a
-// container's image came from - the tag alone can't tell (each rebuild moves
-// `glovebox-agent:local` to the new image, leaving older containers on a now-untagged one).
+// e.g. 2024-09-09T14:16:46.786Z.
 const ImageCreatedLabelFormat = "2006-01-02T15:04:05.000Z"
 
 // HostClient is the subset of `docker` CLI invocations the host-side gbx makes.
-// Production uses NewHost (shells out via os/exec). Tests pass a fake.
-//
-// This interface deliberately stays narrow: each method maps to exactly one
-// invocation pattern of the docker CLI. We don't try to recreate the docker
-// SDK - for streamed commands like `build` and `exec`, shelling out keeps
-// the user-visible output intact with one line of glue.
 type HostClient interface {
 	// DaemonReachable returns nil if `docker info` succeeds.
 	DaemonReachable(ctx context.Context) error
 
-	// ImageExists reports whether image is present locally. Returns false
-	// (with nil error) when the image is missing or the daemon is down -
-	// callers use this as a probe before deciding to build.
+	// ImageExists reports whether image is present locally.
 	ImageExists(ctx context.Context, image string) bool
 
 	// BuildImage runs `docker build` with streaming stdout/stderr.
@@ -62,15 +50,11 @@ type HostClient interface {
 
 	// Exec runs `docker exec` with optional TTY, user, and workdir, wiring
 	// the caller-provided In/Out/Err streams (defaults to os.Std* when nil).
-	// On exit code != 0 the returned error is an *exec.ExitError; the
-	// docker CLI's own stderr appears on Err.
 	Exec(ctx context.Context, spec ExecSpec) error
 
 	// ContainerLogs streams a container's stdout/stderr to the given writers,
 	// demuxing Docker's multiplexed log stream (the controller is a non-TTY
-	// container, so its frames carry stdcopy headers). tail caps the past
-	// backlog (0 = all); follow keeps streaming until ctx is canceled.
-	// Writers default to os.Stdout/os.Stderr when nil.
+	// container, so its frames carry stdcopy headers).
 	ContainerLogs(ctx context.Context, name string, tail int, follow bool, stdout, stderr io.Writer) error
 }
 

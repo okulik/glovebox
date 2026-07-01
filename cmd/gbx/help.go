@@ -59,6 +59,10 @@ Agents:
                                      pi, gemini, aider, hermes.
   update <agent>                     Update an agent inside the container.
   logs [proxy]                       Tail the shared egress-proxy access log.
+  export-conversations [--all] [--harness <name>] [--copy]
+                                     Surface in-sandbox agent conversation logs
+                                     on the host (e.g. ~/.claude) for AgentsView.
+                                     Symlinks by default; --copy snapshots.
 
 Global:
   up                                 Bring the singleton egress-proxy +
@@ -173,6 +177,7 @@ func isKnownTopLevel(s string) bool {
 		"state-size", "mount", "plugin",
 		"stack", "up",
 		"run", "logs", "allow", "update",
+		"export-conversations",
 		"install-completions",
 		"help":
 		return true

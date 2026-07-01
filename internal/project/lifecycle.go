@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/okulik/glovebox/internal/config"
+	"github.com/okulik/glovebox/internal/convexport"
 	"github.com/okulik/glovebox/internal/dockerx"
 	"github.com/okulik/glovebox/internal/hostconfig"
 	"github.com/okulik/glovebox/internal/state"
@@ -149,6 +150,12 @@ func Remove(ctx context.Context, spec RemoveSpec) error {
 	if spec.DeleteState {
 		if err := os.RemoveAll(filepath.Join(stateDir, config.ProjectsPath, pid)); err != nil {
 			return fmt.Errorf("remove state: %w", err)
+		}
+		// Exported symlinks (gbx export-conversations) point into the state dir
+		// we just removed, so they now dangle - prune them best-effort. Copies
+		// are standalone and left alone.
+		if home, err := os.UserHomeDir(); err == nil {
+			_, _ = convexport.RemoveExports(home, pid)
 		}
 	}
 	curPID, _ := state.ActivePID(spec.ConfigDir)

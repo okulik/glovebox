@@ -145,7 +145,7 @@ use the global `-p` flag to target a non-default one.
 | `gbx new <path>`                                              | Register a workspace; create its agent; first project becomes the default. |
 | `gbx use <id-or-prefix>`                                      | Switch the default project pointer.                                      |
 | `gbx ls [-v] [--json]`                                        | List projects (`*` marks default). `-v` adds containers; `--json` emits structured output. |
-| `gbx rm <id> [--delete-state] [-y]`                           | Stop and remove a project's agent. State dir kept unless `--delete-state`. |
+| `gbx rm <id> [--delete-state] [-y]`                           | Stop and remove a project's agent. State dir kept unless `--delete-state` (which also prunes any exported symlinks). |
 | `gbx rm --all [--delete-state] [-y]`                          | Remove every registered project. Same state-dir rule as the single-pid form. |
 | `gbx start\|stop\|restart [<id>]`                             | Per-project agent lifecycle.                                             |
 | `gbx rebuild [<id>] [--all]`                                  | Rebuild `glovebox-agent:local` and recreate the agent.                   |
@@ -255,6 +255,53 @@ gbx -p 1a2b3c update gemini      # update the agent in a specific project's cont
 The resolved install command (npm / uv) is echoed to stderr before it runs,
 and like `gbx run` the target defaults to the active project unless `-p` is
 given.
+
+### `gbx export-conversations` - surface sandbox chats to host viewers
+
+Surfaces the agent conversation logs written *inside* the sandbox at the
+host locations that desktop viewers (AgentsView and friends) already scan.
+The logs aren't hidden - glovebox bind-mounts each agent's home
+(`~/.claude`, `~/.codex`, ...) from `state/projects/<pid>/<agent>/`, so they
+persist on disk. The problem is that every sandbox runs with `cwd=/workspace`,
+so a harness that keys sessions by working directory (Claude Code) files them
+all under one ambiguous `-workspace` folder, indistinguishable across projects.
+
+This command re-files them under a synthetic
+`/glovebox/<pid>/<real-workspace>` path, so each project's sessions land in a
+unique, obviously-glovebox folder that never collides - even if two projects
+ran from the same host workspace:
+
+```
+~/.claude/projects/-glovebox-<pid>-Users-you-code-myapp/<session>.jsonl
+```
+
+By default the sessions are **symlinked** into each harness's native host
+directory, so new turns show up in the viewer without re-exporting. Pass
+`--copy` for a standalone snapshot instead (independent of the state dir; safe
+to archive or move). Re-running is idempotent and switches an entry's mode.
+
+`gbx rm <id> --delete-state` prunes the symlinks it finds for that project (they
+would otherwise dangle once the state dir is gone); `--copy` snapshots are left
+untouched. Exports sent to a custom `--dest` aren't tracked, so aren't cleaned.
+
+| Flag | Purpose |
+|---|---|
+| `--all` | Export every registered project (default: the active / `-p` project). |
+| `--harness <name>` | Limit to one harness (`claude`, `codex`, ...). Default: all. |
+| `--copy` | Copy the logs instead of symlinking them. |
+| `--dest <dir>` | Override the destination root (requires `--harness`). |
+
+```bash
+gbx export-conversations --all      # every project, all harnesses → ~/.claude, ...
+gbx -p 1a2b3c export-conversations  # just one project
+```
+
+Then point AgentsView at `~/.claude`; the exported chats appear as
+`glovebox-<pid>-...` projects alongside your native ones.
+
+> Only **Claude Code** export is implemented today. The other bundled harnesses
+> (codex, gemini, opencode, aider, pi, hermes) are recognized but skipped with a
+> notice - they store sessions differently and each needs its own mapping.
 
 ### `gbx logs [proxy|controller]` - tail a stack component
 
