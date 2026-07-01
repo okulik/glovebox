@@ -152,6 +152,83 @@ func TestExportProject_ReexportOverwrites(t *testing.T) {
 	}
 }
 
+func TestExportProject_RemovesStalePriorExports(t *testing.T) {
+	state := t.TempDir()
+	home := t.TempDir()
+	pid := "030d91f1f47b"
+	ws := "/Users/orest/dev/projects/gwook"
+	projDir := filepath.Join(state, "projects", pid)
+	writeFile(t, filepath.Join(projDir, "workspace-path"), ws+"\n")
+	writeFile(t, filepath.Join(projDir, "claude", "projects", "-workspace", "sess.jsonl"), `{"cwd":"/workspace"}`)
+
+	projectsHost := filepath.Join(home, ".claude", "projects")
+	// A stale export from the old "-glovebox-<pid>-" scheme, and an unrelated
+	// native project that must survive.
+	stale := filepath.Join(projectsHost, "-glovebox-"+pid+"-Users-orest-dev-projects-gwook")
+	native := filepath.Join(projectsHost, "-Users-orest-dev-projects-other")
+	writeFile(t, filepath.Join(stale, "sess.jsonl"), "old")
+	writeFile(t, filepath.Join(native, "n.jsonl"), "native")
+
+	if _, err := ExportProject(state, home, pid, "claude", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Errorf("stale export %s should be removed (err=%v)", stale, err)
+	}
+	if _, err := os.Stat(filepath.Join(native, "n.jsonl")); err != nil {
+		t.Errorf("native project must be untouched: %v", err)
+	}
+	cur := filepath.Join(projectsHost, "-Users-orest-dev-projects-gbx-"+pid+"-gwook", "sess.jsonl")
+	if _, err := os.Stat(cur); err != nil {
+		t.Errorf("current export missing: %v", err)
+	}
+	// Exactly one export folder for this pid remains.
+	dirs, _ := os.ReadDir(projectsHost)
+	n := 0
+	for _, d := range dirs {
+		if strings.Contains(d.Name(), pid) {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("expected 1 export folder for pid, got %d", n)
+	}
+}
+
+func TestExportProject_ReexportSamePathInPlace(t *testing.T) {
+	state := t.TempDir()
+	home := t.TempDir()
+	pid := "abcd1234"
+	projDir := filepath.Join(state, "projects", pid)
+	writeFile(t, filepath.Join(projDir, "workspace-path"), "/w\n")
+	writeFile(t, filepath.Join(projDir, "claude", "projects", "-workspace", "s.jsonl"), `{"cwd":"/workspace","v":1}`)
+
+	if _, err := ExportProject(state, home, pid, "claude", ""); err != nil {
+		t.Fatal(err)
+	}
+	// Same scheme + workspace: re-export overwrites the SAME folder in place and
+	// does not leave a duplicate.
+	writeFile(t, filepath.Join(projDir, "claude", "projects", "-workspace", "s.jsonl"), `{"cwd":"/workspace","v":2}`)
+	if _, err := ExportProject(state, home, pid, "claude", ""); err != nil {
+		t.Fatal(err)
+	}
+	dirs, _ := os.ReadDir(filepath.Join(home, ".claude", "projects"))
+	n := 0
+	for _, d := range dirs {
+		if strings.Contains(d.Name(), pid) {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("expected 1 export folder after re-export, got %d", n)
+	}
+	got, _ := os.ReadFile(filepath.Join(home, ".claude", "projects", "-gbx-"+pid+"-w", "s.jsonl"))
+	if !strings.Contains(string(got), `"v":2`) {
+		t.Errorf("re-export did not refresh in place: %s", got)
+	}
+}
+
 func TestExportProject_HarnessFilter(t *testing.T) {
 	state := t.TempDir()
 	home := t.TempDir()

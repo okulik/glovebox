@@ -151,15 +151,27 @@ func (claude) export(srcDir, root, pid, workspace string) (int, error) {
 
 	newRoot := provenanceRoot(pid, workspace)
 	baseSlug := Slugify(newRoot)
+
+	// Folder names this export will (over)write. Everything else that belongs to
+	// this project - an earlier export under a different naming scheme, or a
+	// session since removed from source - is stale and gets dropped below, so a
+	// viewer that dedups by session id never keeps showing an old copy.
+	keep := map[string]bool{}
+	for _, e := range entries {
+		if e.IsDir() {
+			keep[baseSlug+exportSuffix(e.Name())] = true
+		}
+	}
+	if err := removeStaleExports(filepath.Join(root, "projects"), pid, keep); err != nil {
+		return 0, err
+	}
+
 	total := 0
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		// The in-sandbox cwd-slug is Slugify(WorkspaceDir) (or that plus a
-		// "-<sub>" suffix when the agent ran from a subdir).
-		suffix := strings.TrimPrefix(e.Name(), Slugify(agent.WorkspaceDir))
-		destDir := filepath.Join(root, "projects", baseSlug+suffix)
+		destDir := filepath.Join(root, "projects", baseSlug+exportSuffix(e.Name()))
 		n, err := copyRewriteJSONL(filepath.Join(projectsSrc, e.Name()), destDir, newRoot)
 		if err != nil {
 			return total, err
@@ -167,6 +179,41 @@ func (claude) export(srcDir, root, pid, workspace string) (int, error) {
 		total += n
 	}
 	return total, nil
+}
+
+// exportSuffix maps an in-sandbox cwd-slug ("-workspace", or "-workspace-<sub>"
+// when the agent ran from a subdir) to the suffix appended to the export folder.
+func exportSuffix(srcSlug string) string {
+	return strings.TrimPrefix(srcSlug, Slugify(agent.WorkspaceDir))
+}
+
+// removeStaleExports deletes this project's earlier export folders under
+// projectsDir except those named in keep (the ones the current run rewrites).
+// Our export folders embed a "gbx-<pid>" (or legacy "glovebox-<pid>") marker
+// that nothing else in a viewer's projects dir carries, so the match is exact.
+func removeStaleExports(projectsDir, pid string, keep map[string]bool) error {
+	entries, err := os.ReadDir(projectsDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	markers := []string{"gbx-" + pid, "glovebox-" + pid}
+	for _, e := range entries {
+		if !e.IsDir() || keep[e.Name()] {
+			continue
+		}
+		for _, m := range markers {
+			if strings.Contains(e.Name(), m) {
+				if err := os.RemoveAll(filepath.Join(projectsDir, e.Name())); err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
+	return nil
 }
 
 // unsupported is a scaffold for harnesses not yet implemented.

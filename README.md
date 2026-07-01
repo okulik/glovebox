@@ -280,7 +280,9 @@ real one. For a workspace `~/dev/projects/gwook` and pid `030d91f1f47b`:
 
 Copies are standalone (only the cwd field is touched; other `/workspace`
 mentions are left as the agent saw them). Re-running is idempotent - it
-refreshes the copies to pick up new turns.
+refreshes the copies to pick up new turns, and drops any earlier export of the
+same project (from an older naming scheme, say) so a viewer that dedups by
+session id never keeps showing a stale copy.
 
 | Flag | Purpose |
 |---|---|
